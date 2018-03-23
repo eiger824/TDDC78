@@ -1,0 +1,5 @@
+*.o
+filters/blurc
+filters/thresc
+*~
+*.swp

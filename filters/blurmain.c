@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <openmpi/mpi.h>
+
 #include "ppmio.h"
 #include "blurfilter.h"
 #include "gaussw.h"
@@ -27,6 +29,15 @@ int main (int argc, char ** argv) {
 	fprintf(stderr, "Radius (%d) must be greater than zero and less then %d\n", radius, MAX_RAD);
 	exit(1);
     }
+
+    int nprocs;
+    int my_id;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+
+    printf("Nprocs:\t%d, my_id:\t%d\n", nprocs, my_id);
 
     /* read file */
     if(read_ppm (argv[2], &xsize, &ysize, &colmax, (char *) src) != 0)

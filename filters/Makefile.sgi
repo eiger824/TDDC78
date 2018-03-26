@@ -1,5 +1,5 @@
 CC 	   = mpicc
-RM	   =/usr/bin/rm
+RM	   = /usr/bin/rm
 
 # with optimization
 CFLAGS = -fullwarn -Ofast -TENV:align_aggregate=1

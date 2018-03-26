@@ -1,6 +1,12 @@
 CC 		= mpicc
-CFLAGS 	=
+CFLAGS 	+= $(TYPE)
 LFLAGS	= -lpthread -lrt -lm
+
+TYPE=-DWITH_MPI
+
+ifeq ($(MPI),0)
+	TYPE=-DWITH_PTHREAD
+endif
 
 all: blurc thresc
 

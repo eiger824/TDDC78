@@ -54,14 +54,30 @@ int main (int argc, char ** argv) {
 
     printf("Calling filter\n");
 
-    clock_gettime(CLOCK_REALTIME, &stime);
+    /* Different ways of measuring time, according to which technique to use */
+#ifdef WITH_MPI
+    double starttime, endtime;
+    starttime = MPI_Wtime();
+#endif
 
+#ifdef WITH_PTHREAD
+    clock_gettime(CLOCK_REALTIME, &stime);
+#endif
+
+    /* Apply the filter */
     blurfilter(xsize, ysize, src, radius, w);
 
-    clock_gettime(CLOCK_REALTIME, &etime);
+#ifdef WITH_MPI
+    endtime = MPI_Wtime();
+    printf("Filtering took: %f sec\n", endtime - starttime);
+#endif
 
+#ifdef WITH_PTHREAD
+    clock_gettime(CLOCK_REALTIME, &etime);
     printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
+#endif
+
 
     /* write result */
     printf("Writing output file\n");

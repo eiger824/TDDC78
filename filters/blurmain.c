@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <openmpi/mpi.h>
+#include <mpi.h>
 
 #include "ppmio.h"
 #include "blurfilter.h"

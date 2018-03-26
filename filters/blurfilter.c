@@ -63,15 +63,15 @@ void blurfilter(const int xsize, const int ysize, pixel* src, const int radius, 
         }
     }
 
-    for (y=0; y<ysize; y++)
+    for (y=0; y < ysize; y++)
     {
-        for (x=0; x<xsize; x++)
+        for (x=0; x < xsize; x++)
         {
             r = w[0] * pix(dst, x, y, xsize)->r;
             g = w[0] * pix(dst, x, y, xsize)->g;
             b = w[0] * pix(dst, x, y, xsize)->b;
             n = w[0];
-            for ( wi=1; wi <= radius; wi++)
+            for ( wi = 1; wi <= radius; wi++)
             {
                 wc = w[wi];
                 y2 = y - wi;

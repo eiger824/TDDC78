@@ -30,12 +30,12 @@ int main (int argc, char ** argv) {
     }
 
 #ifdef WITH_MPI
-    int nprocs;
+    int p;
     int my_id;
     MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_size(MPI_COMM_WORLD, &p);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
-    printf("Nprocs:\t%d, my_id:\t%d\n", nprocs, my_id);
+    printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
 #endif
 
     /* read file */
@@ -60,7 +60,7 @@ int main (int argc, char ** argv) {
     starttime = MPI_Wtime();
 #endif
 
-#ifdef WITH_PTHREAD
+#ifdef WITH_OPENMP
     clock_gettime(CLOCK_REALTIME, &stime);
 #endif
 
@@ -72,7 +72,7 @@ int main (int argc, char ** argv) {
     printf("Filtering took: %f secs\n", endtime - starttime);
 #endif
 
-#ifdef WITH_PTHREAD
+#ifdef WITH_OPENMP
     clock_gettime(CLOCK_REALTIME, &etime);
     printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;

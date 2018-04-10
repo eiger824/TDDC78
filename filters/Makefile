@@ -5,13 +5,13 @@ LFLAGS	= -lpthread -lrt -lm
 TYPE=-DWITH_MPI
 
 ifeq ($(MPI),0)
-	TYPE=-DWITH_PTHREAD
+	TYPE=-DWITH_OPENMP
 endif
 
 all: blurc thresc
 
 clean:
-	-$(RM) *.o blur thresc
+	-$(RM) *.o blurc thresc
 
 blurc: ppmio.o gaussw.o blurfilter.o blurmain.o
 	${CC} -o $@ ppmio.o gaussw.o blurfilter.o blurmain.o $(LFLAGS)

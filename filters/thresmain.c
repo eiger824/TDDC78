@@ -45,7 +45,7 @@ int main (int argc, char ** argv) {
     int max_size = xsize * ysize;
 
     if (my_id == 0)
-        printf("Has read the image (%d pixels), calling filter\n", max_size);
+        printf("[ROOT] Has read the image (%d pixels), calling filter\n", max_size);
 
 #ifdef WITH_MPI
     /************* First create our own MPI datatype *************/
@@ -71,11 +71,12 @@ int main (int argc, char ** argv) {
 
     /************ END OF MPI DATATYPE CREATION ************/
 
+    elems_per_node = max_size / p;
+
     /* Root node */
     if (my_id == 0)
     {
         /* TODO: find out if SIZE is not divisible by p */
-        elems_per_node = max_size / p;
         printf("[ROOT] Every processing node will process %d elements.\n" ,elems_per_node);
     }
 
@@ -96,19 +97,23 @@ int main (int argc, char ** argv) {
     myarr = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
     /* Call MPI_Scatter to compute the sum of all pixels */
-    MPI_Scatter((void *)src, max_size, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Scatter((void *)src, elems_per_node, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
     uint mysum = get_px_sum(myarr, elems_per_node);
 
     MPI_Reduce( &mysum, &avg, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD );
 
+    avg /= max_size;
+
     /* Now `avg` has the pixel average that we can use in the threshold function */
     if (my_id == 0)
-        avg /= max_size;
+    {
+        printf("[ROOT] Average:\t%d\n", avg);
+    }
 
 
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
-    MPI_Scatter( (void *)src, max_size, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Scatter( (void *)src, elems_per_node, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
 #endif
 
     /* Call the filtering function */
@@ -116,7 +121,7 @@ int main (int argc, char ** argv) {
 
 #ifdef WITH_MPI
     /* Gather the results */
-    MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, max_size, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
 #endif
 
 #ifdef WITH_MPI
@@ -133,9 +138,9 @@ int main (int argc, char ** argv) {
     if (my_id == 0)
     {
         /* write result */
-        printf("Writing output file\n");
+        printf("[ROOT] Writing output file\n");
 
-        if(write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
+        if (write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
             exit(1);
     }
 

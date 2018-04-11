@@ -79,8 +79,6 @@ int main (int argc, char ** argv) {
         printf("[ROOT] Every processing node will process %d elements.\n" ,elems_per_node);
     }
 
-    /* Allocate a processing array for every node */
-    myarr = (pixel *) malloc (elems_per_node * sizeof(pixel));
 #endif
 
 #ifdef WITH_MPI
@@ -94,6 +92,9 @@ int main (int argc, char ** argv) {
 
 #ifdef WITH_MPI
 
+    /* Allocate a processing array for every node */
+    myarr = (pixel *) malloc (elems_per_node * sizeof(pixel));
+
     /* Call MPI_Scatter to compute the sum of all pixels */
     MPI_Scatter((void *)src, max_size, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
     uint mysum = get_px_sum(myarr, elems_per_node);
@@ -104,14 +105,13 @@ int main (int argc, char ** argv) {
     if (my_id == 0)
         avg /= max_size;
 
-    /* Call the filtering function */
 
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
     MPI_Scatter( (void *)src, max_size, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
 #endif
 
-    /* Actual filtering */
+    /* Call the filtering function */
     thresfilter(myarr2, elems_per_node, avg);
 
 #ifdef WITH_MPI
@@ -139,8 +139,12 @@ int main (int argc, char ** argv) {
             exit(1);
     }
 
-    /* Finalize MPI running environment */
 #ifdef WITH_MPI
+    /* Free allocated buffers */
+    free(myarr);
+    free(myarr2);
+
+    /* Finalize MPI running environment */
     MPI_Finalize();
 #endif
 

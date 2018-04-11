@@ -1,5 +1,5 @@
 CC 		= mpicc
-CFLAGS 	+= $(TYPE)
+CFLAGS 	+= $(TYPE) -g
 LFLAGS	= -lpthread -lrt -lm
 
 TYPE=-DWITH_MPI

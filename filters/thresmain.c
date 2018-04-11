@@ -15,8 +15,8 @@ int main (int argc, char ** argv) {
     /* Take care of the arguments */
 
     if (argc != 3) {
-	fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
-	exit(1);
+        fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
+        exit(1);
     }
 
 #ifdef WITH_MPI
@@ -38,13 +38,14 @@ int main (int argc, char ** argv) {
         exit(1);
 
     if (colmax > 255) {
-	fprintf(stderr, "Too large maximum color-component value\n");
-	exit(1);
+        fprintf(stderr, "Too large maximum color-component value\n");
+        exit(1);
     }
 
     int max_size = xsize * ysize;
 
-    printf("Has read the image, calling filter\n");
+    if (my_id == 0)
+        printf("Has read the image (%d pixels), calling filter\n", max_size);
 
 #ifdef WITH_MPI
     /************* First create our own MPI datatype *************/
@@ -75,6 +76,7 @@ int main (int argc, char ** argv) {
     {
         /* TODO: find out if SIZE is not divisible by p */
         elems_per_node = max_size / p;
+        printf("[ROOT] Every processing node will process %d elements.\n" ,elems_per_node);
     }
 
     /* Allocate a processing array for every node */

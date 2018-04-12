@@ -16,7 +16,7 @@ typedef struct _pixel
 typedef unsigned int uint;
 
 uint get_px_sum(pixel * src, const uint nr_elems);
-void thresfilter(pixel* src, const uint nr_elems, const uint sum);
+void thresfilter(pixel* src, const uint nr_elems, const uint average);
 
 
 #endif

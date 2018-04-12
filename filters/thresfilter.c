@@ -12,14 +12,14 @@ uint get_px_sum(pixel * src, const uint nr_elems)
     return sum;
 }
 
-void thresfilter(pixel* src, const uint nr_elems, const uint sum)
+void thresfilter(pixel* src, const uint nr_elems, const uint average)
 {
     uint i, psum;
 
-    for(i = 0; i < nr_elems; i++)
+    for (i = 0; i < nr_elems; i++)
     {
         psum = (uint)src[i].r + (uint)src[i].g + (uint)src[i].b;
-        if(sum > psum)
+        if( psum < average)
         {
             src[i].r = src[i].g = src[i].b = 0;
         }

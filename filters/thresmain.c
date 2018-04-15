@@ -126,9 +126,14 @@ int main (int argc, char ** argv) {
     MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
 #endif
 
+    /* After this point, we know all group members have entered the barrier
+     * i.e., all have processed their part of the image */
+    MPI_Barrier(MPI_COMM_WORLD);
+
 #ifdef WITH_MPI
     endtime = MPI_Wtime();
-    printf("Filtering took: %f secs\n", endtime - starttime);
+    if (my_id == 0)
+        printf("Filtering took: %f secs\n", endtime - starttime);
 #endif
 
 #ifdef WITH_OPENMP
@@ -136,10 +141,6 @@ int main (int argc, char ** argv) {
     printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
 #endif
-
-    /* After this point, we know all group members have entered the barrier
-     * i.e., all have processed their part of the image */
-    MPI_Barrier(MPI_COMM_WORLD);
 
     if (my_id == 0)
     {

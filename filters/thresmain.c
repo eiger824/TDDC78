@@ -7,6 +7,8 @@
 #include "ppmio.h"
 #include "thresfilter.h"
 
+#define     ROOT    0
+
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
     pixel src[MAX_PIXELS];
@@ -23,6 +25,7 @@ int main (int argc, char ** argv) {
     int p;
     int my_id;
     int elems_per_node;
+    int max_size;
     uint avg;
     pixel * myarr;
     pixel * myarr2;
@@ -33,7 +36,7 @@ int main (int argc, char ** argv) {
     printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
 #endif
 
-    if (my_id == 0)
+    if (my_id == ROOT)
     {
         /* read file */
         if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
@@ -43,11 +46,17 @@ int main (int argc, char ** argv) {
             fprintf(stderr, "Too large maximum color-component value\n");
             exit(1);
         }
-    }
-    int max_size = xsize * ysize;
-
-    if (my_id == 0)
+        max_size = xsize * ysize;
         printf("[ROOT] Has read the image (%d pixels), calling filter\n", max_size);
+        /* Once root has read and computed all pixels, send the max pixels to all processes */
+        unsigned i;
+        if (my_id == ROOT)
+            for (i = 1; i < p; ++i)
+                MPI_Send(&max_size, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
+        else
+            MPI_Recv(&max_size, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+    }
+
 
 #ifdef WITH_MPI
     /************* First create our own MPI datatype *************/
@@ -76,7 +85,7 @@ int main (int argc, char ** argv) {
     elems_per_node = max_size / p;
 
     /* Root node */
-    if (my_id == 0)
+    if (my_id == ROOT)
     {
         /* TODO: find out if SIZE is not divisible by p */
         printf("[ROOT] Every processing node will process %d elements.\n" ,elems_per_node);
@@ -99,25 +108,25 @@ int main (int argc, char ** argv) {
     myarr = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
     /* Call MPI_Scatter to compute the sum of all pixels */
-    MPI_Scatter((void *)src, elems_per_node, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Scatter((void *)src, elems_per_node, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
     uint mysum = get_px_sum(myarr, elems_per_node);
 
-    MPI_Reduce( &mysum, &avg, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD );
+    MPI_Reduce( &mysum, &avg, 1, MPI_UNSIGNED, MPI_SUM, ROOT, MPI_COMM_WORLD );
 
     /* Now `avg` has the pixel average that we can use in the threshold function */
     avg /= max_size;
 
     /* Now we need to send this average to the processes in this group */
     unsigned i;
-    if (my_id == 0)
-        for (i=1; i < p; ++i)
-            MPI_Send(&avg, 1, MPI_UNSIGNED, i, 0, MPI_COMM_WORLD);
+    if (my_id == ROOT)
+        for (i = 1; i < p; ++i)
+            MPI_Send(&avg, 1, MPI_UNSIGNED, i, ROOT, MPI_COMM_WORLD);
     else
-        MPI_Recv(&avg, 1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+        MPI_Recv(&avg, 1, MPI_UNSIGNED, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
 
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
-    MPI_Scatter( (void *)src, elems_per_node, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Scatter( (void *)src, elems_per_node, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
 #endif
 
     /* Call the filtering function */
@@ -125,7 +134,7 @@ int main (int argc, char ** argv) {
 
 #ifdef WITH_MPI
     /* Gather the results */
-    MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, elems_per_node, pixel_t_mpi, 0, MPI_COMM_WORLD);
+    MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
 #endif
 
     /* After this point, we know all group members have entered the barrier
@@ -134,7 +143,7 @@ int main (int argc, char ** argv) {
 
 #ifdef WITH_MPI
     endtime = MPI_Wtime();
-    if (my_id == 0)
+    if (my_id == ROOT)
         printf("Filtering took: %f secs\n", endtime - starttime);
 #endif
 
@@ -144,7 +153,7 @@ int main (int argc, char ** argv) {
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
 #endif
 
-    if (my_id == 0)
+    if (my_id == ROOT)
     {
         /* write result */
         printf("[ROOT] Writing output file\n");

@@ -1,4 +1,15 @@
-CC 	   = mpicc
+ifeq ($(MPI),0)
+	TYPE=-DWITH_PTHREADS
+	CC 		= gcc
+	CFLAGS 	+= $(TYPE) -g
+	LFLAGS	= -lpthread -lm
+else
+	CC 		= mpicc
+	CFLAGS 	+= $(TYPE) -g -Nmpi
+	LFLAGS	= -lpthread -lrt -lm
+endif
+
+#CC 	   = mpicc
 RM	   = /usr/bin/rm
 
 # with optimization
@@ -57,4 +68,4 @@ thresfmp: thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o
 	${CC} -o $@ thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o  $(LFLAGS) $(OMP)
 
 arc:
-	tar cf - *.c *.h *.f90 Makefile Makefile.sgi|gzip - > filters.tar.gz
+	tar cvf filters.tar.gz *.c *.h *.f90 Makefile Makefile.sgi

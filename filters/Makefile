@@ -1,11 +1,14 @@
-CC 		= mpicc
-CFLAGS 	+= $(TYPE) -g -Nmpi
-LFLAGS	= -lpthread -lrt -lm
-
 TYPE=-DWITH_MPI
 
 ifeq ($(MPI),0)
-	TYPE=-DWITH_OPENMP
+	TYPE=-DWITH_PTHREADS
+	CC 		= gcc
+	CFLAGS 	+= $(TYPE) -g -Wall -Wextra
+	LFLAGS	= -lpthread -lm -lrt
+else
+	CC 		= mpicc
+	CFLAGS 	+= $(TYPE) -g -Nmpi -Wall -Wextra
+	LFLAGS	= -lpthread -lrt -lm
 endif
 
 all: blurc thresc
@@ -20,4 +23,4 @@ thresc: thresmain.o ppmio.o thresfilter.o
 	${CC} -o $@ thresmain.o ppmio.o thresfilter.o $(LFLAGS)
 
 arc:
-	tar cf - *.c *.h *.f90 Makefile Makefile.sgi|gzip - > filters.tar.gz
+	tar cvf filters.tar.gz *.c *.h *.f90 Makefile Makefile.sgi

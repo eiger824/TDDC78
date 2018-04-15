@@ -2,12 +2,84 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#ifdef WITH_MPI
 #include <mpi.h>
+#else
+#include <pthread.h>
+#endif
 
 #include "ppmio.h"
 #include "thresfilter.h"
 
 #define     ROOT    0
+
+#ifdef WITH_PTHREADS
+
+/* Global sum of pixels */
+static uint g_sum = 0;
+/* Partial sum of pixels */
+static uint * g_sum_partial = NULL;
+/* Mutex object to use for critical section locks */
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Thread data struct  */
+typedef struct thread_data_struct 
+{
+    uint thread_id;  /* Thread-ID allocated */
+    uint nr_elems;   /* How many elems will I process? */
+    uint px_avg;     /* The pixel intensity average */
+    void * data_to_process;  /* Pointer containing the address of
+                                the segment of the array to process */
+} tdata_t;
+
+void * get_px_sum_wrapper(void * data)
+{
+    pthread_mutex_lock(&mutex);
+    tdata_t * thread_data = (tdata_t * ) data;
+    uint id = thread_data->thread_id;
+    uint elems = thread_data->nr_elems;
+    pixel * array = (pixel *) thread_data->data_to_process;
+
+    uint sum = get_px_sum(array, elems);
+    g_sum_partial[id-1] = sum;
+    printf("[T%u] Calculating my partial sum:\t%u\n", id, sum);
+    pthread_mutex_unlock(&mutex);
+
+    pthread_exit(NULL);
+    return NULL;
+}
+
+void * thresfilter_wrapper(void * data)
+{
+    pthread_mutex_lock(&mutex);
+    tdata_t * thread_data = (tdata_t * ) data;
+    uint id = thread_data->thread_id;
+    uint elems = thread_data->nr_elems;
+    uint avg = thread_data->px_avg;
+    pixel * array = (pixel *) thread_data->data_to_process;
+    printf("[T%u] Applying filter on my image segment\n", id);
+
+    thresfilter(array, elems, avg);
+
+    pthread_mutex_unlock(&mutex);
+    pthread_exit(NULL);
+    return NULL;
+}
+
+uint get_average(uint nr_threads, uint max_pixels)
+{
+    uint avg = 0;
+    uint i;
+    for (i = 0; i < nr_threads; ++i)
+    {
+        avg += g_sum_partial[i];
+    }
+    printf("avg:\t%u\n", avg);
+    avg /= max_pixels;
+    return avg;
+}
+
+#endif
 
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
@@ -15,18 +87,27 @@ int main (int argc, char ** argv) {
     struct timespec stime, etime;
 
     /* Take care of the arguments */
-
-    if (argc != 3) {
+#ifdef WITH_MPI
+    if (argc != 3)
+    {
         fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
         exit(1);
     }
+#endif
+#ifdef WITH_PTHREADS
+    if (argc != 4)
+    {
+        fprintf(stderr, "Usage: %s infile outfile nr_threads\n", argv[0]);
+        exit(1);
+    }
+#endif
 
-#ifdef WITH_MPI
-    int p;
-    int my_id;
     int elems_per_node = 0;
     int max_size;
     uint avg;
+    int my_id;
+#ifdef WITH_MPI
+    int p;
     pixel * myarr;
     pixel * myarr2;
 
@@ -95,8 +176,64 @@ int main (int argc, char ** argv) {
     starttime = MPI_Wtime();
 #endif
 
-#ifdef WITH_OPENMP
+#ifdef WITH_PTHREADS
     clock_gettime(CLOCK_REALTIME, &stime);
+
+    /* PTHread array to use */
+    int nr_threads = atoi(argv[3]);
+    pthread_t threads[nr_threads];
+    elems_per_node = max_size / nr_threads;
+
+    /* Initalize g_sum_partials array */
+    g_sum_partial = (uint *) malloc(nr_threads * sizeof(uint));
+    tdata_t t[nr_threads];
+    /* First, all compute the partial sums */
+    /* Start by 1, we want the main thread to be 0 - like 'root' in MPI */
+    for (my_id = 1; my_id <= nr_threads; ++my_id)
+    {
+        t[my_id-1].thread_id = my_id;
+        t[my_id-1].nr_elems = elems_per_node;
+        t[my_id-1].data_to_process = (void *)(src + (my_id-1)*elems_per_node);
+        if (pthread_create(&threads[my_id-1], NULL, get_px_sum_wrapper, (void *)&t[my_id-1]) != 0)
+        {
+            perror("Error creating thread.");
+            exit(1);
+        }
+    }
+    /* Next, wait for them to finish and return */
+    for (my_id = 1; my_id <= nr_threads; ++my_id)
+    {
+        if (pthread_join(threads[my_id-1], NULL) != 0)
+        {
+            perror("Error joining thread.");
+            exit(2);
+        }
+    }
+    /* Now, root (main thread) calculates the average from the partial sums */
+    avg = get_average(nr_threads, max_size);
+    printf("[T0] Average was:\t%u\n", avg);
+    /* Finally, generate threads (again) to perform the actual filtering */
+    for (my_id = 1; my_id <= nr_threads; ++my_id)
+    {
+        t[my_id-1].thread_id = my_id;
+        t[my_id-1].nr_elems = elems_per_node;
+        t[my_id-1].px_avg = avg;
+        t[my_id-1].data_to_process = (void *)(src + (my_id-1)*elems_per_node);
+        if (pthread_create(&threads[my_id-1], NULL, thresfilter_wrapper, (void *)&t[my_id-1]) != 0)
+        {
+            perror("Error creating thread.");
+            exit(1);
+        }
+    }
+    /* And wait for them to finish and return */
+    for (my_id = 1; my_id <= nr_threads; ++my_id)
+    {
+        if (pthread_join(threads[my_id-1], NULL) != 0)
+        {
+            perror("Error joining thread.");
+            exit(2);
+        }
+    }
 #endif
 
 #ifdef WITH_MPI
@@ -124,42 +261,42 @@ int main (int argc, char ** argv) {
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
     MPI_Scatter( (void *)src, elems_per_node, pixel_t_mpi, (void *) myarr2, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
-#endif
 
     /* Call the filtering function */
     thresfilter(myarr2, elems_per_node, avg);
 
-#ifdef WITH_MPI
     /* Gather the results */
     MPI_Gather(myarr2, elems_per_node, pixel_t_mpi, src, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
-#endif
 
     /* After this point, we know all group members have entered the barrier
      * i.e., all have processed their part of the image */
     MPI_Barrier(MPI_COMM_WORLD);
 
-#ifdef WITH_MPI
     endtime = MPI_Wtime();
     if (my_id == ROOT)
         printf("Filtering took: %f secs\n", endtime - starttime);
 #endif
 
-#ifdef WITH_OPENMP
+#ifdef WITH_PTHREADS
     clock_gettime(CLOCK_REALTIME, &etime);
     printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
+    // Free global array of partial sums
+    free(g_sum_partial);
 #endif
 
+#ifdef WITH_MPI
     if (my_id == ROOT)
     {
+#endif
         /* write result */
         printf("[ROOT] Writing output file\n");
 
         if (write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
             exit(1);
+#ifdef WITH_MPI
     }
 
-#ifdef WITH_MPI
     /* Free allocated buffers */
     free(myarr);
     free(myarr2);

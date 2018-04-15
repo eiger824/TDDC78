@@ -1,4 +1,3 @@
-#include <mpi.h>
 #include "thresfilter.h"
 
 uint get_px_sum(pixel * src, const uint nr_elems)

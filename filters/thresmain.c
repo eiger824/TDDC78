@@ -33,15 +33,17 @@ int main (int argc, char ** argv) {
     printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
 #endif
 
-    /* read file */
-    if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
-        exit(1);
+    if (my_id == 0)
+    {
+        /* read file */
+        if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
+            exit(1);
 
-    if (colmax > 255) {
-        fprintf(stderr, "Too large maximum color-component value\n");
-        exit(1);
+        if (colmax > 255) {
+            fprintf(stderr, "Too large maximum color-component value\n");
+            exit(1);
+        }
     }
-
     int max_size = xsize * ysize;
 
     if (my_id == 0)

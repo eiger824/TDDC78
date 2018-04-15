@@ -102,14 +102,16 @@ int main (int argc, char ** argv) {
 
     MPI_Reduce( &mysum, &avg, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD );
 
+    /* Now `avg` has the pixel average that we can use in the threshold function */
     avg /= max_size;
 
-    /* Now `avg` has the pixel average that we can use in the threshold function */
+    /* Now we need to send this average to the processes in this group */
+    unsigned i;
     if (my_id == 0)
-    {
-        printf("[ROOT] Average:\t%d\n", avg);
-    }
-
+        for (i=1; i < p; ++i)
+            MPI_Send(&avg, 1, MPI_UNSIGNED, i, 0, MPI_COMM_WORLD);
+    else
+        MPI_Recv(&avg, 1, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
 
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
@@ -135,6 +137,10 @@ int main (int argc, char ** argv) {
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
 #endif
 
+    /* After this point, we know all group members have entered the barrier
+     * i.e., all have processed their part of the image */
+    MPI_Barrier(MPI_COMM_WORLD);
+
     if (my_id == 0)
     {
         /* write result */
@@ -153,5 +159,5 @@ int main (int argc, char ** argv) {
     MPI_Finalize();
 #endif
 
-    return(0);
+    return 0;
 }

@@ -1,10 +1,12 @@
+#include <mpi.h>
 #include "thresfilter.h"
 
 uint get_px_sum(pixel * src, const uint nr_elems)
 {
-    uint sum, i;
+    uint sum = 0;
+    uint i;
 
-    for (i = 0, sum = 0; i < nr_elems; i++)
+    for (i = 0; i < nr_elems; i++)
     {
         sum += (uint)src[i].r + (uint)src[i].g + (uint)src[i].b;
     }
@@ -14,6 +16,7 @@ uint get_px_sum(pixel * src, const uint nr_elems)
 
 void thresfilter(pixel* src, const uint nr_elems, const uint average)
 {
+    int my_id;
     uint i, psum;
 
     for (i = 0; i < nr_elems; i++)

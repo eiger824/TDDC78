@@ -24,7 +24,7 @@ int main (int argc, char ** argv) {
 #ifdef WITH_MPI
     int p;
     int my_id;
-    int elems_per_node;
+    int elems_per_node = 0;
     int max_size;
     uint avg;
     pixel * myarr;
@@ -36,8 +36,10 @@ int main (int argc, char ** argv) {
     printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
 #endif
 
+#ifdef WITH_MPI
     if (my_id == ROOT)
     {
+#endif
         /* read file */
         if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
             exit(1);
@@ -49,16 +51,14 @@ int main (int argc, char ** argv) {
         max_size = xsize * ysize;
         printf("[ROOT] Has read the image (%d pixels), calling filter\n", max_size);
         /* Once root has read and computed all pixels, send the max pixels to all processes */
-        unsigned i;
-        if (my_id == ROOT)
-            for (i = 1; i < p; ++i)
-                MPI_Send(&max_size, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
-        else
-            MPI_Recv(&max_size, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
-    }
-
-
 #ifdef WITH_MPI
+        unsigned i;
+        for (i = 1; i < p; ++i)
+            MPI_Send(&max_size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+    }
+    else
+        MPI_Recv(&max_size, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+
     /************* First create our own MPI datatype *************/
     pixel item;
     MPI_Datatype pixel_t_mpi; // MPI type to commit
@@ -91,9 +91,6 @@ int main (int argc, char ** argv) {
         printf("[ROOT] Every processing node will process %d elements.\n" ,elems_per_node);
     }
 
-#endif
-
-#ifdef WITH_MPI
     double starttime, endtime;
     starttime = MPI_Wtime();
 #endif

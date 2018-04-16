@@ -1,11 +1,12 @@
-TYPE=-DWITH_MPI
+# TYPE=-DWITH_MPI
 
-ifeq ($(MPI),0)
+ifeq ($(PTHREADS),1)
 	TYPE=-DWITH_PTHREADS
 	CC 		= gcc
 	CFLAGS 	+= $(TYPE) -g -Wall -Wextra
 	LFLAGS	= -lpthread -lm -lrt
-else
+endif
+ifeq ($(MPI),1)
 	CC 		= mpicc
 	CFLAGS 	+= $(TYPE) -g -Nmpi -Wall -Wextra
 	LFLAGS	= -lpthread -lrt -lm

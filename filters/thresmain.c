@@ -15,8 +15,6 @@
 
 #ifdef WITH_PTHREADS
 
-/* Global sum of pixels */
-static uint g_sum = 0;
 /* Partial sum of pixels */
 static uint * g_sum_partial = NULL;
 /* Mutex object to use for critical section locks */
@@ -85,7 +83,6 @@ uint get_average(uint nr_threads, uint max_pixels)
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
     pixel src[MAX_PIXELS];
-    struct timespec stime, etime;
 
     /* Take care of the arguments */
 #ifdef WITH_MPI
@@ -178,7 +175,7 @@ int main (int argc, char ** argv) {
 #endif
 
 #ifdef WITH_PTHREADS
-    clock_gettime(CLOCK_REALTIME, &stime);
+    struct timespec stime, etime;
 
     /* PTHread array to use */
     int nr_threads = atoi(argv[3]);
@@ -190,6 +187,7 @@ int main (int argc, char ** argv) {
     tdata_t t[nr_threads];
     /* First, all compute the partial sums */
     /* Start by 1, we want the main thread to be 0 - like 'root' in MPI */
+    clock_gettime(CLOCK_REALTIME, &stime);
     for (my_id = 1; my_id <= nr_threads; ++my_id)
     {
         t[my_id-1].thread_id = my_id;

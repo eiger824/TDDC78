@@ -14,7 +14,8 @@ pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
     register int off = xsize*yy + xx;
 
 #ifdef DBG
-    if(off >= MAX_PIXELS) {
+    if (off >= MAX_PIXELS)
+    {
         fprintf(stderr, "\n Terribly wrong: %d %d %d\n",xx,yy,xsize);
     }
 #endif
@@ -41,7 +42,7 @@ void blurfilter(const int xsize, const int ysize, pixel* src, const int radius, 
             {
                 wc = w[wi];
                 x2 = x - wi;
-                if(x2 >= 0)
+                if (x2 >= 0)
                 {
                     r += wc * pix(src, x2, y, xsize)->r;
                     g += wc * pix(src, x2, y, xsize)->g;
@@ -49,7 +50,7 @@ void blurfilter(const int xsize, const int ysize, pixel* src, const int radius, 
                     n += wc;
                 }
                 x2 = x + wi;
-                if(x2 < xsize)
+                if (x2 < xsize)
                 {
                     r += wc * pix(src, x2, y, xsize)->r;
                     g += wc * pix(src, x2, y, xsize)->g;
@@ -75,14 +76,15 @@ void blurfilter(const int xsize, const int ysize, pixel* src, const int radius, 
             {
                 wc = w[wi];
                 y2 = y - wi;
-                if(y2 >= 0) {
+                if (y2 >= 0)
+                {
                     r += wc * pix(dst, x, y2, xsize)->r;
                     g += wc * pix(dst, x, y2, xsize)->g;
                     b += wc * pix(dst, x, y2, xsize)->b;
                     n += wc;
                 }
                 y2 = y + wi;
-                if(y2 < ysize)
+                if (y2 < ysize)
                 {
                     r += wc * pix(dst, x, y2, xsize)->r;
                     g += wc * pix(dst, x, y2, xsize)->g;

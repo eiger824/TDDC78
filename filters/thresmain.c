@@ -34,7 +34,6 @@ typedef struct thread_data_struct
 
 void * get_px_sum_wrapper(void * data)
 {
-    pthread_mutex_lock(&mutex);
     tdata_t * thread_data = (tdata_t * ) data;
     uint id = thread_data->thread_id;
     uint elems = thread_data->nr_elems;
@@ -42,6 +41,8 @@ void * get_px_sum_wrapper(void * data)
 
     uint sum = get_px_sum(array, elems);
     g_sum_partial[id-1] = sum;
+
+    pthread_mutex_lock(&mutex);
     printf("[T%u] Calculating my partial sum:\t%u\n", id, sum);
     pthread_mutex_unlock(&mutex);
 
@@ -51,17 +52,18 @@ void * get_px_sum_wrapper(void * data)
 
 void * thresfilter_wrapper(void * data)
 {
-    pthread_mutex_lock(&mutex);
     tdata_t * thread_data = (tdata_t * ) data;
     uint id = thread_data->thread_id;
     uint elems = thread_data->nr_elems;
     uint avg = thread_data->px_avg;
     pixel * array = (pixel *) thread_data->data_to_process;
+
+    pthread_mutex_lock(&mutex);
     printf("[T%u] Applying filter on my image segment\n", id);
+    pthread_mutex_unlock(&mutex);
 
     thresfilter(array, elems, avg);
 
-    pthread_mutex_unlock(&mutex);
     pthread_exit(NULL);
     return NULL;
 }
@@ -74,7 +76,6 @@ uint get_average(uint nr_threads, uint max_pixels)
     {
         avg += g_sum_partial[i];
     }
-    printf("avg:\t%u\n", avg);
     avg /= max_pixels;
     return avg;
 }
@@ -211,7 +212,7 @@ int main (int argc, char ** argv) {
     }
     /* Now, root (main thread) calculates the average from the partial sums */
     avg = get_average(nr_threads, max_size);
-    printf("[T0] Average was:\t%u\n", avg);
+    printf("[ROOT] Average was:\t%u\n", avg);
     /* Finally, generate threads (again) to perform the actual filtering */
     for (my_id = 1; my_id <= nr_threads; ++my_id)
     {

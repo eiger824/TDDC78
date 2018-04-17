@@ -14,11 +14,11 @@ typedef struct _pixel {
 } pixel;
 
 void blurfilter_x(const int xstart, const int ystart,
-        const int xsize, const int ysize,
+        const int xend, const int yend, const int xsize,
         pixel* src, const int radius, const double *w);
 
 void blurfilter_y(const int xstart, const int ystart,
-        const int xsize, const int ysize,
+        const int xend, const int yend, const int xsize,
         pixel* src, const int radius, const double *w);
 
 #endif

@@ -177,13 +177,14 @@ int main (int argc, char ** argv) {
 #ifdef WITH_PTHREADS
     struct timespec stime, etime;
 
-    /* PTHread array to use */
     int nr_threads = atoi(argv[3]);
-    pthread_t threads[nr_threads];
     elems_per_node = max_size / nr_threads;
 
     /* Initalize g_sum_partials array */
     g_sum_partial = (uint *) malloc(nr_threads * sizeof(uint));
+
+    /* Pthread array to use */
+    pthread_t threads[nr_threads];
     tdata_t t[nr_threads];
     /* First, all compute the partial sums */
     /* Start by 1, we want the main thread to be 0 - like 'root' in MPI */

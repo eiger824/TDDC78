@@ -24,13 +24,14 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 /* Thread data struct */
 typedef struct thread_data_struct
 {
-    uint thread_id;        /* Thread-ID allocated */
-    int x_start;           /* Where at X coordinate to start */
-    int y_start;           /* Where at Y coordinate to start */
-    int x_size;            /* Number of columns the image has */
-    int y_size;            /* Number of rows the image has */
-    int radius;            /* The radius to use */
-    double * w;            /* The gaussian weight array */
+    uint thread_id;       /* Thread-ID allocated */
+    int x_start;          /* Where at X coordinate to start */
+    int y_start;          /* Where at Y coordinate to start */
+    int x_end;            /* Where at X coordinate to end */
+    int y_end;            /* Where at Y coordinate to end */
+    int x_size;           /* How many horizontal pixels */
+    int radius;           /* The radius to use */
+    double * w;           /* The gaussian weight array */
     pixel * data_to_process;/* Pointer containing the starting address of
                               the image */
 } tdata_t;
@@ -42,19 +43,20 @@ void * blurf_x_wrapper(void * data)
     uint id = thread_data->thread_id;
     int xstart = thread_data->x_start;
     int ystart = thread_data->y_start;
+    int xend = thread_data->x_end;
+    int yend = thread_data->y_end;
     int xsize = thread_data->x_size;
-    int ysize = thread_data->y_size;
     int radius = thread_data->radius;
     double * weights = thread_data->w;
     pixel * image = thread_data->data_to_process;
 
     pthread_mutex_lock(&mutex);
-    printf("[T%u] Calculating filter in the horizontal direction (will process image at [%d,%d,%d,%d])\n", id,
-            xstart,ystart,xsize,ysize);
+    printf("[T%u] hz (xs=%d,ys=%d,xe=%d,ye=%d])\n", id,
+            xstart,ystart,xend,yend);
     pthread_mutex_unlock(&mutex);
 
     // Call the filter in the horizontal direction 
-    blurfilter_x(xstart, ystart, xsize, ysize, image, radius, weights);
+    blurfilter_x(xstart, ystart, xend, yend, xsize, image, radius, weights);
 
     pthread_exit(NULL);
     return NULL;
@@ -67,19 +69,20 @@ void * blurf_y_wrapper(void * data)
     uint id = thread_data->thread_id;
     int xstart = thread_data->x_start;
     int ystart = thread_data->y_start;
+    int xend = thread_data->x_end;
+    int yend = thread_data->y_end;
     int xsize = thread_data->x_size;
-    int ysize = thread_data->y_size;
     int radius = thread_data->radius;
     double * weights = thread_data->w;
     pixel * image = thread_data->data_to_process;
 
     pthread_mutex_lock(&mutex);
-    printf("[T%u] Calculating filter in the vertical direction (will process image at [%d,%d,%d,%d])\n", id,
-            xstart,ystart,xsize,ysize);
+    printf("[T%u] vt (xs=%d,ys=%d,xe=%d,ye=%d])\n", id,
+            xstart,ystart,xend,yend);
     pthread_mutex_unlock(&mutex);
 
     // Call the filter in the horizontal direction 
-    blurfilter_y(xstart, ystart, xsize, ysize, image, radius, weights);
+    blurfilter_y(xstart, ystart, xend, yend, xsize, image, radius, weights);
 
     pthread_exit(NULL);
     return NULL;
@@ -146,8 +149,11 @@ int main (int argc, char ** argv) {
 
     /* filter */
     get_gauss_weights(radius, w);
+    uint i;
+    for (i = 0; i < radius; ++i)
+        printf("%.2f ", w[i]);
 
-    printf("Calling filter\n");
+    printf("\nCalling filter\n");
 
     /* Different ways of measuring time, according to which technique to use */
 #ifdef WITH_MPI
@@ -176,8 +182,9 @@ int main (int argc, char ** argv) {
         t[my_id-1].thread_id = my_id;
         t[my_id-1].x_start = 0;
         t[my_id-1].y_start = (my_id-1)*hz_block_count;
+        t[my_id-1].x_end = xsize;
+        t[my_id-1].y_end = my_id*hz_block_count; // We want divide the work horizontally
         t[my_id-1].x_size = xsize;
-        t[my_id-1].y_size = hz_block_count; // We want divide the work horizontally
         t[my_id-1].radius = radius;
         t[my_id-1].w = w;
         t[my_id-1].data_to_process = src;
@@ -204,8 +211,9 @@ int main (int argc, char ** argv) {
         t[my_id-1].thread_id = my_id;
         t[my_id-1].x_start = (my_id-1)*vt_block_count;
         t[my_id-1].y_start = 0; 
-        t[my_id-1].x_size = vt_block_count;
-        t[my_id-1].y_size = ysize; // We want divide the work horizontally
+        t[my_id-1].x_end = my_id*vt_block_count;
+        t[my_id-1].y_end = ysize; // We want divide the work horizontally
+        t[my_id-1].x_size = xsize;
         t[my_id-1].radius = radius;
         t[my_id-1].w = w;
         t[my_id-1].data_to_process = src;

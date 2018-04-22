@@ -47,9 +47,9 @@ fi
 
 ARGS=""
 if [[ $PROGRAM == "thresc" ]]; then
-    ARGS="../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)mpinodes.ppm $NR "
+    ARGS="../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)mpinodes.ppm"
 else
-    ARGS="10 ../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)mpinodes.ppm $NR "
+    ARGS="10 ../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)mpinodes.ppm"
 fi
 echo "Running \"$PROGRAM\" on image $IM on $NR MPI nodes! (Defaulting ARGS: '$ARGS')"
 

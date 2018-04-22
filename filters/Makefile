@@ -1,5 +1,3 @@
-# TYPE=-DWITH_MPI
-
 ifeq ($(PTHREADS),1)
 	TYPE=-DWITH_PTHREADS
 	CC 		= gcc
@@ -15,7 +13,7 @@ endif
 all: blurc thresc
 
 clean:
-	-$(RM) *.o blurc thresc
+	-$(RM) *.o blurc thresc *.ppm *-results.png
 
 blurc: ppmio.o gaussw.o blurfilter.o blurmain.o
 	${CC} -o $@ ppmio.o gaussw.o blurfilter.o blurmain.o $(LFLAGS)

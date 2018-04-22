@@ -5,6 +5,7 @@ ifeq ($(PTHREADS),1)
 	LFLAGS	= -lpthread -lm -lrt
 endif
 ifeq ($(MPI),1)
+	TYPE=-DWITH_MPI
 	CC 		= mpicc
 	CFLAGS 	+= $(TYPE) -g -Nmpi -Wall -Wextra
 	LFLAGS	= -lpthread -lrt -lm

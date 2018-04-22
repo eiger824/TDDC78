@@ -41,7 +41,7 @@ test -z $NR &&
 
 # Now check if programs are built
 if [[ ! -f $PROGRAM ]]; then
-    echo -e "Please make first:\tmake PTHREADS=1"
+    echo -e "Please make first:\tmake MPI=1"
     exit 1
 fi
 

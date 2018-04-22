@@ -38,6 +38,12 @@ test -z $NR &&
     usage && exit 1
 }
 
+# Now check if programs are built
+if [[ ! -f $PROGRAM ]]; then
+    echo -e "Please make first:\tmake PTHREADS=1"
+    exit 1
+fi
+
 ARGS=""
 if [[ $PROGRAM == "thresc" ]]; then
     ARGS="../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)pthreads.ppm $NR "

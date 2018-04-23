@@ -5,6 +5,7 @@ Implementation of blurfilter function.
 
 */
 #include <stdio.h>
+
 #include "blurfilter.h"
 #include "ppmio.h"
 
@@ -164,12 +165,6 @@ void blurfilter_y(const uint xstart, const uint ystart,
     int x,y,x2,y2,wi;
     double r,g,b,n, wc;
     uint i;
-    int id;
-    
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-
-    printf("[ID=%d] I will start at (x0,y0)=(%u,%u) and end at (xe,ye)=(%u,%u)\n",
-            id, xstart, ystart, xend, yend);
 
     for (x = xstart; x < xend; ++x)
     {

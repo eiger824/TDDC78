@@ -245,6 +245,9 @@ int main (int argc, char ** argv) {
     int x_end = x_start + (xsize / p);
     int y_end = ysize;
 
+    printf("[ID=%d] I will start at (x0,y0)=(%u,%u) and end at (xe,ye)=(%u,%u)\n",
+            my_id, x_start, y_start, x_end, y_end);
+
     /* Call the filter */
     blurfilter_y(x_start, y_start, x_end, y_end, xsize, myarr2, radius, w);
 

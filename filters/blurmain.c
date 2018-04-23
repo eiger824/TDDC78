@@ -202,11 +202,18 @@ int main (int argc, char ** argv) {
     double starttime, endtime;
     starttime = MPI_Wtime();
 
+    /* Send xsize to the rest of the nodes */
+    unsigned i;
+    if (my_id == ROOT)
+        for (i = 1; i < p; ++i)
+            MPI_Send(&xsize, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
+    else
+        MPI_Receive(&xsize, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     /* Allocate a processing array for every node */
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
 
     /* Scatter the work to do among processing units: horizontal filter first */
-
     MPI_Scatter((void *) src, elems_per_node, pixel_t_mpi,
             (void *) myarr, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);

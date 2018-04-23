@@ -242,7 +242,7 @@ int main (int argc, char ** argv) {
     /* Calculate starting and ending coordinates for every processing unit */
     int x_start = (xsize / p) * (my_id - 1);
     int y_start = 0;
-    int x_end = x_start + (xsize / p) - 1;
+    int x_end = x_start + (xsize / p);
     int y_end = ysize;
 
     /* Call the filter */

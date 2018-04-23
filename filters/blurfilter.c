@@ -116,7 +116,6 @@ void blurfilter_y(const int xstart, const int ystart,
 /* For the horizontal filter, every core would receive a portion of the image, so they can process it row by row */
 void blurfilter_x(pixel * src, const uint nr_elems, const uint xsize, const uint radius, const double * w)
 {
-    printf("nr_elems(%u), xsize(%u), radius(%u)\n", nr_elems, xsize, radius);
     int x,y,x2,y2,wi;
     double r,g,b,n, wc;
     uint i;
@@ -165,6 +164,12 @@ void blurfilter_y(const uint xstart, const uint ystart,
     int x,y,x2,y2,wi;
     double r,g,b,n, wc;
     uint i;
+    int id;
+    
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    printf("[ID=%d] I will start at (x0,y0)=(%u,%u) and end at (xe,ye)=(%u,%u)\n",
+            id, xstart, ystart, xend, yend);
 
     for (x = xstart; x < xend; ++x)
     {

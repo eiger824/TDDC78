@@ -16,8 +16,8 @@ all: blurc thresc
 clean:
 	-$(RM) *.o blurc thresc *.ppm *-results.png
 
-blurc: ppmio.o gaussw.o blurfilter.o blurmain.o
-	${CC} -o $@ ppmio.o gaussw.o blurfilter.o blurmain.o $(LFLAGS)
+blurc: ppmio.o gaussw.o blurfilter.o blurmain.o image_utils.o
+	${CC} -o $@ $^ $(LFLAGS)
 
 thresc: thresmain.o ppmio.o thresfilter.o
 	${CC} -o $@ thresmain.o ppmio.o thresfilter.o $(LFLAGS)

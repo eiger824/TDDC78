@@ -67,5 +67,8 @@ thresfilter_fmp.o:thresfilter_fmp.f90
 thresfmp: thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o
 	${CC} -o $@ thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o  $(LFLAGS) $(OMP)
 
+image_utils.o: image_utils.c image_utils.h defs.h
+	${CC} -o $@ $(CFLAGS) $<
+
 arc:
 	tar cvf filters.tar.gz *.c *.h *.f90 Makefile Makefile.sgi

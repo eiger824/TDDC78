@@ -12,6 +12,7 @@
 #include "ppmio.h"
 #include "blurfilter.h"
 #include "gaussw.h"
+#include "image_utils.h"
 
 #define MAX_RAD 1000
 #define     ROOT    0
@@ -131,6 +132,7 @@ int main (int argc, char ** argv) {
     int p;
     int max_size;
     int elems_per_node;
+    pixel src_adj[MAX_PIXELS];
     pixel * myarr;
     pixel * myarr2;
     MPI_Init(&argc, &argv);
@@ -198,6 +200,8 @@ int main (int argc, char ** argv) {
     get_gauss_weights(radius, w);
 
 #ifdef WITH_MPI
+    struct matrix original;
+    struct matrix adjoint;
 
     double starttime, endtime;
     starttime = MPI_Wtime();
@@ -208,7 +212,11 @@ int main (int argc, char ** argv) {
         for (i = 1; i < p; ++i)
             MPI_Send(&xsize, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
     else
+    {
         MPI_Recv(&xsize, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        /* Update ysize now that we have both max_size and xsize */
+        ysize = max_size / xsize;
+    }
 
     /* Allocate a processing array for every node */
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
@@ -227,35 +235,46 @@ int main (int argc, char ** argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (my_id == ROOT)
+    {
+        printf("[ROOT] Calculating adjoint pixel matrix\n");
+
+        /* Convert our original image array `src` to a matrix */
+        from_array(src, xsize, ysize, &original);
+        
+        /* Calculate its adjoint matrix */
+        adj_matrix(&original, &adjoint);
+
+        /* Convert the adjoint back to the array in `src_adj` */
+        to_array(&adjoint, src_adj);
+            
         printf("[ROOT] Calling filter on vertical direction.\n");
- /* Now, for the vertical filter, we need to specify exactly where to start in x and y and
-  * where to end, since there are vertical dependencies and we no longer can assign a portion
-  * of `src` to each and every slave separately. Hence, we need to send the whole image to
-  * all slaves and then they will process their portion locally.*/
+    }
 
     /* Allocate memory for the copy of the image */
-    myarr2 = (pixel *) malloc (max_size * sizeof(pixel));
+    myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
-    MPI_Scatter((void *) src, max_size, pixel_t_mpi,
-            (void *) myarr2, max_size, pixel_t_mpi,
+    MPI_Scatter((void *) src_adj, elems_per_node, pixel_t_mpi,
+            (void *) myarr2, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
-    /* Calculate starting and ending coordinates for every processing unit */
-    int x_start = (xsize / p) * (my_id - 1);
-    int y_start = 0;
-    int x_end = x_start + (xsize / p);
-    int y_end = ysize;
-
-    printf("[ID=%d] I will start at (x0,y0)=(%u,%u) and end at (xe,ye)=(%u,%u)\n",
-            my_id, x_start, y_start, x_end, y_end);
-
     /* Call the filter */
-    blurfilter_y(x_start, y_start, x_end, y_end, xsize, myarr2, radius, w);
+    /* Note that xsize is now ysize since we have transposed the original matrix */
+    blurfilter_x(src_adj, elems_per_node, ysize, radius, w);
 
-    /* Gather the whole image into src */
-    MPI_Gather(myarr2, max_size, pixel_t_mpi,
-            src, max_size, pixel_t_mpi,
+    /* Gather the whole image into src_adj */
+    MPI_Gather(myarr2, elems_per_node, pixel_t_mpi,
+            src_adj, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
-    
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (my_id == ROOT)
+    {
+        /* Finally, convert the adjoint array to the original array */
+        from_array(src_adj, ysize, xsize, &adjoint);
+        adj_matrix(&adjoint, &original);
+        to_array(&original, src);
+    }
+
 #endif
 
 #ifdef WITH_PTHREADS
@@ -358,6 +377,11 @@ int main (int argc, char ** argv) {
     /* Free allocated buffers */
     free(myarr);
     free(myarr2);
+    if (my_id == ROOT)
+    {
+        free_matrix(&original);
+        free_matrix(&adjoint);
+    }
 
     /* Finalize MPI running environment */
     MPI_Finalize();

@@ -3,10 +3,10 @@
 usage()
 {
     local name=$(basename $0)
-    echo "USAGE: IM={1,2,3,4} $name <filter> <nr-nodes>"
+    echo "USAGE: IM={1,2,3,4} $name <filter> <nr-cores>"
     echo "( filter={blurc,thresc} )"
     echo "( by default, 1 node -> 16 cores )"
-    echo -e "\nExample: IM=1 $name thresc 4\tApply the threshold filter to image 1 with 4 nodes (64 cores)."
+    echo -e "\nExample: IM=1 $name thresc 4\tApply the threshold filter to image 1 with 4 cores."
 }
 
 test -z $IM && 
@@ -51,16 +51,16 @@ if [[ $PROGRAM == "thresc" ]]; then
 else
     ARGS="10 ../imgs/im$IM.ppm out$(eval echo $IM)-$PROGRAM-$(eval echo $NR)mpinodes.ppm"
 fi
-echo "Running \"$PROGRAM\" on image $IM on $NR MPI nodes! (Defaulting ARGS: '$ARGS')"
+echo "Running \"$PROGRAM\" on image $IM on $NR MPI cores! (Defaulting ARGS: '$ARGS')"
 
 # Check if our runtime statistics file exists
 test -f $FILESTATS ||
 {
-    echo -e "filter\timg\tmpi nodes\telapsed_time" > $FILESTATS
+    echo -e "filter\timg\tcores\telapsed_time" > $FILESTATS
 }
 
 # Run the program and filter out the elapsed time
-ELAPSED_TIME=$(salloc -N$NR mpirun ./$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
+ELAPSED_TIME=$(salloc -N$NR mpprun ./$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
 # Prepend the number of threads used
 ELAPSED_TIME="$PROGRAM-img$IM-$NR-$ELAPSED_TIME"
 echo "$ELAPSED_TIME" | sed -e 's/-/\t/g' >> $FILESTATS

@@ -9,12 +9,12 @@
 #include <pthread.h>
 #endif
 
-
 #include "ppmio.h"
 #include "blurfilter.h"
 #include "gaussw.h"
 
 #define MAX_RAD 1000
+#define     ROOT    0
 
 #ifdef WITH_PTHREADS
 
@@ -129,36 +129,110 @@ int main (int argc, char ** argv) {
     int my_id;
 #ifdef WITH_MPI
     int p;
+    int max_size;
+    int elems_per_node;
+    pixel * myarr;
+    pixel * myarr2;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &p);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
     printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
+
+    if (my_id == ROOT)
+    {
 #endif
 
-    /* read file */
-    if (read_ppm (argv[2], &xsize, &ysize, &colmax, (char *) src) != 0)
-        exit(1);
+        /* read file */
+        if (read_ppm (argv[2], &xsize, &ysize, &colmax, (char *) src) != 0)
+            exit(1);
 
-    if (colmax > 255)
-    {
-        fprintf(stderr, "Too large maximum color-component value\n");
-        exit(1);
-    }
-
-    printf("Has read the image, generating coefficients\n");
-
-    /* filter */
-    get_gauss_weights(radius, w);
-    uint i;
-    for (i = 0; i < radius; ++i)
-        printf("%.2f ", w[i]);
-
-    printf("\nCalling filter\n");
-
-    /* Different ways of measuring time, according to which technique to use */
+        if (colmax > 255)
+        {
+            fprintf(stderr, "Too large maximum color-component value\n");
+            exit(1);
+        }
+        max_size = xsize * ysize;
+        printf("[ROOT] Has read the image, generating coefficients\n");
 #ifdef WITH_MPI
+        unsigned i;
+        for (i = 1; i< p; ++i)
+            MPI_Send(&max_size, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
+    }
+    else
+        MPI_Recv(&max_size, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    /************* First create our own MPI datatype *************/
+    pixel item;
+    MPI_Datatype pixel_t_mpi; // MPI type to commit
+
+    int block_lengths [] = {1, 1, 1};
+    MPI_Datatype block_types[] = { MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR };
+    MPI_Aint start, displ[3];
+
+    MPI_Address( &item, &start );
+    MPI_Address( &item.r, &displ[0]);
+    MPI_Address( &item.g, &displ[1]);
+    MPI_Address( &item.b, &displ[2]);
+
+    displ[0] -= start;
+    displ[1] -= start;
+    displ[2] -= start;
+
+    MPI_Type_struct( 3, block_lengths, displ, block_types, &pixel_t_mpi );
+    /* Commit the newly defined type */
+    MPI_Type_commit ( &pixel_t_mpi );
+
+    /************ END OF MPI DATATYPE CREATION ************/
+
+    elems_per_node = max_size / p;
+    
+    if (my_id == ROOT)
+        printf("[ROOT] Every processing node with process %d elements. Calling filter\n", elems_per_node);
+#endif
+
+    /* Gaussian weights */
+    get_gauss_weights(radius, w);
+
+#ifdef WITH_MPI
+
     double starttime, endtime;
     starttime = MPI_Wtime();
+
+    /* Allocate a processing array for every node */
+    myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
+
+    /* Scatter the work to do among processing units: horizontal filter first */
+    MPI_Scatter((void *) src, elems_per_node, pixel_t_mpi,
+            (void *) myarr, elems_per_node, pixel_t_mpi,
+            ROOT, MPI_COMM_WORLD);
+
+    blurfilter_x(myarr, elems_per_node, xsize, radius, w);
+    /* Gather the results */
+    MPI_Gather(myarr, elems_per_node, pixel_t_mpi,
+            src, elems_per_node, pixel_t_mpi,
+            ROOT, MPI_COMM_WORLD);
+
+ /* Now, for the vertical filter, we need to specify exactly where to start in x and y and
+  * where to end, since there are vertical dependencies and we no longer can assign a portion
+  * of `src` to each and every slave separately. Hence, we need to send the whole image to
+  * all slaves and then they will process their portion locally.*/
+    MPI_Scatter((void *) src, max_size, pixel_t_mpi,
+            (void *) src, max_size, pixel_t_mpi,
+            ROOT, MPI_COMM_WORLD);
+    /* Calculate starting and ending coordinates for every processing unit */
+    int x_start = (xsize / p) * (my_id - 1);
+    int y_start = 0;
+    int x_end = x_start + (xsize / p) - 1;
+    int y_end = ysize;
+
+    /* Call the filter */
+    blurfilter_y(x_start, y_start, x_end, y_end, xsize, src, radius, w);
+
+    /* Gather the whole image into src */
+    MPI_Gather(src, max_size, pixel_t_mpi,
+            src, max_size, pixel_t_mpi,
+            ROOT, MPI_COMM_WORLD);
+    
 #endif
 
 #ifdef WITH_PTHREADS
@@ -236,12 +310,11 @@ int main (int argc, char ** argv) {
 #endif
 
 #ifdef WITH_MPI
-    /* Apply the filter */
-    blurfilter_x(xsize, ysize, src, radius, w);
-    blurfilter_y(xsize, ysize, src, radius, w);
 
     endtime = MPI_Wtime();
-    printf("Filtering took: %f secs\n", endtime - starttime);
+    if (my_id == ROOT)
+    {
+        printf("Filtering took: %f secs\n", endtime - starttime);
 #endif
 
 #ifdef WITH_PTHREADS
@@ -257,8 +330,12 @@ int main (int argc, char ** argv) {
     if(write_ppm (argv[3], xsize, ysize, (char *)src) != 0)
         exit(1);
 
-    /* Finalize MPI running environment */
 #ifdef WITH_MPI
+    }
+    /* Free allocated buffers */
+    free(myarr);
+
+    /* Finalize MPI running environment */
     MPI_Finalize();
 #endif
 

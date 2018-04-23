@@ -159,7 +159,7 @@ void blurfilter_x(pixel * src, const uint nr_elems, const uint xsize, const uint
  * the relevant pixels to process according to the function below */
 void blurfilter_y(const uint xstart, const uint ystart,
         const uint xend, const uint yend,
-        constconst uint xsize, pixel * src, const uint radius, const double * w)
+        const uint xsize, pixel * src, const uint radius, const double * w)
 {
     int x,y,x2,y2,wi;
     double r,g,b,n, wc;

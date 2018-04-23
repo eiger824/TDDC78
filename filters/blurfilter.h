@@ -29,7 +29,7 @@ void blurfilter_y(const int xstart, const int ystart,
 void blurfilter_x(pixel * src, const uint nr_elems, const uint xsize, const uint radius, const double * w);
 void blurfilter_y(const uint xstart, const uint ystart,
         const uint xend, const uint yend,
-        constconst uint xsize, pixel * src, const uint radius, const double * w);
+        const uint xsize, pixel * src, const uint radius, const double * w);
 #endif
 
 #endif

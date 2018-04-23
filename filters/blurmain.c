@@ -187,7 +187,8 @@ int main (int argc, char ** argv) {
     elems_per_node = max_size / p;
     
     if (my_id == ROOT)
-        printf("[ROOT] Every processing node with process %d elements. Calling filter\n", elems_per_node);
+        printf("[ROOT] Every processing node with process %d elements.\nCalling filter on horizontal direction\n"
+                , elems_per_node);
 #endif
 
     /* Gaussian weights */
@@ -212,6 +213,10 @@ int main (int argc, char ** argv) {
             src, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (my_id == ROOT)
+        printf("[ROOT] Calling filter on vertical direction.\n");
  /* Now, for the vertical filter, we need to specify exactly where to start in x and y and
   * where to end, since there are vertical dependencies and we no longer can assign a portion
   * of `src` to each and every slave separately. Hence, we need to send the whole image to

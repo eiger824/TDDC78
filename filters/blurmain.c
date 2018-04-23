@@ -208,7 +208,7 @@ int main (int argc, char ** argv) {
         for (i = 1; i < p; ++i)
             MPI_Send(&xsize, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
     else
-        MPI_Receive(&xsize, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&xsize, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     /* Allocate a processing array for every node */
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));

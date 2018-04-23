@@ -187,8 +187,11 @@ int main (int argc, char ** argv) {
     elems_per_node = max_size / p;
     
     if (my_id == ROOT)
-        printf("[ROOT] Every processing node with process %d elements.\nCalling filter on horizontal direction\n"
+    {
+        printf("[ROOT] Every processing node with process %d elements.\n"
                 , elems_per_node);
+        printf("[ROOT] Calling filter on horizontal direction\n");
+    }
 #endif
 
     /* Gaussian weights */
@@ -344,6 +347,7 @@ int main (int argc, char ** argv) {
     }
     /* Free allocated buffers */
     free(myarr);
+    free(myarr2);
 
     /* Finalize MPI running environment */
     MPI_Finalize();

@@ -116,6 +116,7 @@ void blurfilter_y(const int xstart, const int ystart,
 /* For the horizontal filter, every core would receive a portion of the image, so they can process it row by row */
 void blurfilter_x(pixel * src, const uint nr_elems, const uint xsize, const uint radius, const double * w)
 {
+    printf("nr_elems(%u), xsize(%u), radius(%u)\n", nr_elems, xsize, radius);
     int x,y,x2,y2,wi;
     double r,g,b,n, wc;
     uint i;

@@ -203,6 +203,7 @@ int main (int argc, char ** argv) {
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
 
     /* Scatter the work to do among processing units: horizontal filter first */
+
     MPI_Scatter((void *) src, elems_per_node, pixel_t_mpi,
             (void *) myarr, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
@@ -221,8 +222,12 @@ int main (int argc, char ** argv) {
   * where to end, since there are vertical dependencies and we no longer can assign a portion
   * of `src` to each and every slave separately. Hence, we need to send the whole image to
   * all slaves and then they will process their portion locally.*/
+
+    /* Allocate memory for the copy of the image */
+    myarr2 = (pixel *) malloc (max_size * sizeof(pixel));
+
     MPI_Scatter((void *) src, max_size, pixel_t_mpi,
-            (void *) src, max_size, pixel_t_mpi,
+            (void *) myarr2, max_size, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
     /* Calculate starting and ending coordinates for every processing unit */
     int x_start = (xsize / p) * (my_id - 1);
@@ -231,10 +236,10 @@ int main (int argc, char ** argv) {
     int y_end = ysize;
 
     /* Call the filter */
-    blurfilter_y(x_start, y_start, x_end, y_end, xsize, src, radius, w);
+    blurfilter_y(x_start, y_start, x_end, y_end, xsize, myarr2, radius, w);
 
     /* Gather the whole image into src */
-    MPI_Gather(src, max_size, pixel_t_mpi,
+    MPI_Gather(myarr2, max_size, pixel_t_mpi,
             src, max_size, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
     

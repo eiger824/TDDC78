@@ -1,0 +1,7 @@
+filter	img	mpi nodes	elapsed_time
+thresc	img1	1	0.008161
+thresc	img1	2	0.005256
+thresc	img1	4	0.003975
+thresc	img1	8	0.003447
+thresc	img1	16	0.003781
+thresc	img1	32	0.001994

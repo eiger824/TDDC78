@@ -1,0 +1,9 @@
+#!/bin/bash
+
+unset MPI
+export PTHREADS=1
+
+make clean
+
+echo "Done! Build environment set to pthreads."
+

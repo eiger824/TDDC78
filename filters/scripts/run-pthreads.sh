@@ -8,6 +8,12 @@ usage()
     echo -e "\nExample: IM=1 $name thresc 4\tApply the threshold filter to image 1 with 4 threads."
 }
 
+# Check current directory
+if [ $(basename $PWD) != "filters" ]; then
+    echo "Please run this script from the filters directory"
+    exit 1
+fi
+
 test -z $IM && 
 {
     echo "Error: \`IM\` was not set"
@@ -39,7 +45,7 @@ test -z $NR &&
 }
 
 # Now check if programs are built
-if [[ ! -f $PROGRAM ]]; then
+if [[ ! -f bin/$PROGRAM ]]; then
     echo -e "Please make first:\tmake PTHREADS=1"
     exit 1
 fi
@@ -59,7 +65,7 @@ test -f $FILESTATS ||
 }
 
 # Run the program and filter out the elapsed time
-ELAPSED_TIME=$(./$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
+ELAPSED_TIME=$(./bin/$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
 # Prepend the number of threads used
 ELAPSED_TIME="$PROGRAM-img$IM-$NR-$ELAPSED_TIME"
 echo "$ELAPSED_TIME" | sed -e 's/-/\t/g' >> $FILESTATS

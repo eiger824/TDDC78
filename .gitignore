@@ -4,4 +4,4 @@ bin
 *~
 *.swp
 *.png
-*.ppm
+out*.ppm

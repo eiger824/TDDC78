@@ -13,4 +13,4 @@ if [[ $1 != "pthreads" ]] && [[ $1 != "mpi" ]]; then
     exit 1
 fi
 
-octave plots-$1.m
+octave scripts/plots-$1.m

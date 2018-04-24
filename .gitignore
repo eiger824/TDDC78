@@ -3,3 +3,5 @@ filters/obj
 filters/bin
 *~
 *.swp
+*.png
+*.ppm

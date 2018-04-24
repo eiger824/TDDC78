@@ -66,7 +66,7 @@ test -f $FILESTATS ||
 }
 
 # Run the program and filter out the elapsed time
-ELAPSED_TIME=$(salloc -N$NR mpprun ./bin/$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
+ELAPSED_TIME=$(salloc -n$NR mpprun ./bin/$PROGRAM $ARGS | grep -E 'secs$' | cut -d' ' -f3)
 # Prepend the number of threads used
 ELAPSED_TIME="$PROGRAM-img$IM-$NR-$ELAPSED_TIME"
 echo "$ELAPSED_TIME" | sed -e 's/-/\t/g' >> $FILESTATS

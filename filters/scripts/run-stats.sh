@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ $(basename $PWD) != "filters" ]; then
+    echo "Please run this script from the filters directory."
+    exit 1
+fi
+
 rm -f thresc-pthreads-results.png
 rm -f blurc-pthreads-results.png
 

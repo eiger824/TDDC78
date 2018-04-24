@@ -6,7 +6,7 @@
 #include <mpi.h>
 
 #include "ppmio.h"
-#include "thresfilter-mpi.h"
+#include "thresfilter.h"
 
 #define     ROOT    0
 

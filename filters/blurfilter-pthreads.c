@@ -9,7 +9,6 @@ Implementation of blurfilter function.
 #include "blurfilter-pthreads.h"
 #include "ppmio.h"
 
-
 pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
 {
     register int off = xsize*yy + xx;
@@ -40,6 +39,7 @@ void blurfilter_x(const int xstart, const int ystart,
             g = w[0] * pix(src, x, y, xsize)->g;
             b = w[0] * pix(src, x, y, xsize)->b;
             n = w[0];
+
             for ( wi = 1; wi <= radius; wi++)
             {
                 wc = w[wi];
@@ -60,6 +60,7 @@ void blurfilter_x(const int xstart, const int ystart,
                     n += wc;
                 }
             }
+
             pix(src,x,y, xsize)->r = r/n;
             pix(src,x,y, xsize)->g = g/n;
             pix(src,x,y, xsize)->b = b/n;

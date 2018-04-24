@@ -24,7 +24,7 @@ typedef unsigned int uint;
 /* NOTE: This structure must not be padded! */
 typedef struct _pixel
 {
-    unsigned r,g,b;
+    unsigned char r,g,b;
 } pixel;
 
 #endif

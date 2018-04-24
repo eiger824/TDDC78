@@ -46,12 +46,15 @@ void * blurf_x_wrapper(void * data)
     pixel * image = thread_data->data_to_process;
 
     pthread_mutex_lock(&mutex);
-    printf("[T%u] hz (xs=%d,ys=%d,xe=%d,ye=%d])\n", id,
+    printf("[T%u] hz (xs=%d,ys=%d,xe=%d,ye=%d)\n", id,
             xstart,ystart,xend,yend);
     pthread_mutex_unlock(&mutex);
 
     // Call the filter in the horizontal direction 
-    blurfilter_x(xstart, ystart, xend, yend, xsize, image, radius, weights);
+    blurfilter_x(xstart, ystart,
+                 xend, yend,
+                 xsize,
+                 image, radius, weights);
 
     pthread_exit(NULL);
     return NULL;
@@ -93,7 +96,6 @@ int main (int argc, char ** argv) {
     struct timespec stime, etime;
 
     /* Take care of the arguments */
-
     if (argc != 5)
     {
         fprintf(stderr, "Usage: %s radius infile outfile nr_threads\n", argv[0]);

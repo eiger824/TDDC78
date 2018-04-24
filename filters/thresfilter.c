@@ -15,7 +15,6 @@ uint get_px_sum(pixel * src, const uint nr_elems)
 
 void thresfilter(pixel* src, const uint nr_elems, const uint average)
 {
-    int my_id;
     uint i, psum;
 
     for (i = 0; i < nr_elems; i++)

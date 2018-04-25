@@ -11,7 +11,7 @@
 #define     ROOT    0
 
 /* Partial sum of pixels */
-static uint * g_sum_partial = NULL;
+static uint g_sum = 0;
 /* Mutex object to use for critical section locks */
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -33,9 +33,10 @@ void * get_px_sum_wrapper(void * data)
     pixel * array = (pixel *) thread_data->data_to_process;
 
     uint sum = get_px_sum(array, elems);
-    g_sum_partial[id-1] = sum;
 
     pthread_mutex_lock(&mutex);
+    /* Add up every thread's sum within the critical section */
+    g_sum += sum;
     printf("[T%u] Calculating my partial sum:\t%u\n", id, sum);
     pthread_mutex_unlock(&mutex);
 
@@ -59,18 +60,6 @@ void * thresfilter_wrapper(void * data)
 
     pthread_exit(NULL);
     return NULL;
-}
-
-uint get_average(uint nr_threads, uint max_pixels)
-{
-    uint avg = 0;
-    uint i;
-    for (i = 0; i < nr_threads; ++i)
-    {
-        avg += g_sum_partial[i];
-    }
-    avg /= max_pixels;
-    return avg;
 }
 
 int main (int argc, char ** argv) {
@@ -104,9 +93,6 @@ int main (int argc, char ** argv) {
     int nr_threads = atoi(argv[3]);
     elems_per_node = max_size / nr_threads;
 
-    /* Initalize g_sum_partials array */
-    g_sum_partial = (uint *) malloc(nr_threads * sizeof(uint));
-
     /* Pthread array to use */
     pthread_t threads[nr_threads];
     tdata_t t[nr_threads];
@@ -134,7 +120,7 @@ int main (int argc, char ** argv) {
         }
     }
     /* Now, root (main thread) calculates the average from the partial sums */
-    avg = get_average(nr_threads, max_size);
+    avg = g_sum / max_size;
     printf("[ROOT] Average was:\t%u\n", avg);
     /* Finally, generate threads (again) to perform the actual filtering */
     for (my_id = 1; my_id <= nr_threads; ++my_id)
@@ -161,9 +147,6 @@ int main (int argc, char ** argv) {
     clock_gettime(CLOCK_REALTIME, &etime);
     printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
             1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
-    // Free global array of partial sums
-    free(g_sum_partial);
-
     /* write result */
     printf("[ROOT] Writing output file\n");
 

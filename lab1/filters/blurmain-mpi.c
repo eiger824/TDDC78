@@ -124,7 +124,7 @@ int main (int argc, char ** argv) {
 
     /* Synchronization point */
     MPI_Barrier(MPI_COMM_WORLD);
-
+elems_per_node = (xsize / p) * ysize;
     /* Allocate a processing array for every node */
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
 
@@ -167,7 +167,7 @@ int main (int argc, char ** argv) {
             ROOT, MPI_COMM_WORLD);
     /* Call the filter */
     /* Note that xsize is now ysize since we have transposed the original matrix */
-    blurfilter(src_adj, elems_per_node, ysize, radius, w);
+    blurfilter(myarr2, elems_per_node, ysize, radius, w);
 
     /* Gather the whole image into src_adj */
     MPI_Gather(myarr2, elems_per_node, pixel_t_mpi,

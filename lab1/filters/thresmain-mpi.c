@@ -96,6 +96,8 @@ int main (int argc, char ** argv) {
     MPI_Scatter((void *)src, elems_per_node, pixel_t_mpi, (void *)myarr, elems_per_node, pixel_t_mpi, ROOT, MPI_COMM_WORLD);
     uint mysum = get_px_sum(myarr, elems_per_node);
 
+ /* We could have used MPI_AllReduce to avoid an extra communication step when
+  * sending `avg` to the rest of the cores */
     MPI_Reduce( &mysum, &avg, 1, MPI_UNSIGNED, MPI_SUM, ROOT, MPI_COMM_WORLD );
 
     /* Now `avg` has the pixel average that we can use in the threshold function */

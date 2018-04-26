@@ -62,4 +62,4 @@ ${BINDIR}/thresc: ${OBJDIR}/ppmio.o \
 	${CC} -o $@ $^ $(LFLAGS)
 
 arc:
-	tar cvf filters.tar.gz *.c *.h Makefile
+	tar jcvf filters-labs1-2-sanpa993-haoli436.tar.bz2 *.c *.h Makefile README scripts *.pdf 

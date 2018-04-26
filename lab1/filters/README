@@ -1,0 +1,9 @@
+Please source one of the following scripts before running make:
+
+    source scripts/mpi.source
+
+or
+
+    source scripts/pthreads.source
+
+This way, the environment will be set to either MPI or PThreads (compiler, flags, etc)

@@ -3,10 +3,10 @@ close all
 clc
 
 [a,b,c,d] = textread("results-thresc-pthreads.txt", "%d %d %d %f");
-threads=c(2:end);
-threstimes=d(2:end);
+threads=c(1:end);
+threstimes=d(1:end);
 [a,b,c,d] = textread("results-blurc-pthreads.txt", "%d %d %d %f");
-blurtimes=d(2:end);
+blurtimes=d(1:end);
 
 h1 = figure(1)
 bar(log2(threads), 1000.*threstimes)

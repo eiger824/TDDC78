@@ -16,7 +16,7 @@
 int main (int argc, char ** argv) {
     int radius;
     int xsize, ysize, colmax;
-    pixel src[MAX_PIXELS];
+    pixel * src = (pixel *) malloc (sizeof*src * MAX_PIXELS);
     double w[MAX_RAD];
 
     /* Take care of the arguments */
@@ -39,7 +39,7 @@ int main (int argc, char ** argv) {
     int max_size;
     int p;
     int elems_per_node;
-    pixel src_adj[MAX_PIXELS];
+    pixel * src_adj = (pixel * ) malloc (sizeof*src_adj * MAX_PIXELS);
     pixel * myarr;
     pixel * myarr2;
     MPI_Init(&argc, &argv);
@@ -209,6 +209,9 @@ elems_per_node = (xsize / p) * ysize;
 
     /* Finalize MPI running environment */
     MPI_Finalize();
+
+    free(src);
+    free(src_adj);
 
     return 0;
 }

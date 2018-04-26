@@ -12,7 +12,7 @@
 
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
-    pixel src[MAX_PIXELS];
+    pixel * src = (pixel *) malloc (sizeof*src * MAX_PIXELS);
 
     /* Take care of the arguments */
     if (argc != 3)
@@ -140,6 +140,7 @@ int main (int argc, char ** argv) {
     /* Free allocated buffers */
     free(myarr);
     free(myarr2);
+    free(src);
 
     /* Finalize MPI running environment */
     MPI_Finalize();

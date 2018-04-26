@@ -90,7 +90,7 @@ void * blurf_y_wrapper(void * data)
 int main (int argc, char ** argv) {
     int radius;
     int xsize, ysize, colmax;
-    pixel src[MAX_PIXELS];
+    pixel * src = (pixel *) malloc (sizeof*src * MAX_PIXELS);
     double w[MAX_RAD];
     uint nr_threads;
     struct timespec stime, etime;
@@ -208,6 +208,8 @@ int main (int argc, char ** argv) {
 
     if(write_ppm (argv[3], xsize, ysize, (char *)src) != 0)
         exit(1);
+
+    free(src);
 
     return 0;
 }

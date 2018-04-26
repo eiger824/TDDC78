@@ -64,7 +64,7 @@ void * thresfilter_wrapper(void * data)
 
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
-    pixel src[MAX_PIXELS];
+    pixel * src = (pixel *) malloc (sizeof*src * MAX_PIXELS);
 
     /* Take care of the arguments */
     if (argc != 4)
@@ -152,6 +152,8 @@ int main (int argc, char ** argv) {
 
     if (write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
         exit(1);
+
+    free(src);
 
     return 0;
 }

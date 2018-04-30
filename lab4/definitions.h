@@ -1,5 +1,5 @@
-#include<stdlib.h>
-#include<math.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include "coordinate.h"
 #include "physics.h"
@@ -21,14 +21,10 @@
 #define PARTICLE_BUFFER_SIZE MAX_NO_PARTICLES/5
 #define COMM_BUFFER_SIZE  5*PARTICLE_BUFFER_SIZE
 
-struct particle {
-  pcord_t  pcord;
-  int ptype;        /* Used to simulate mixing of gases */ 
-};
-
-
-
-typedef struct particle particle_t;
-
+typedef struct particle
+{
+    pcord_t  pcord;
+    int ptype;        /* Used to simulate mixing of gases */ 
+} particle_t;
 
 #endif

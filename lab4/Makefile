@@ -1,4 +1,4 @@
-############### Variables ###############
+#################### Variables ####################
 CC 					= gcc
 CFLAGS 				= -c -Wall -Wextra --std=c11 -g
 LDFLAGS 			= -lm
@@ -13,7 +13,7 @@ OBJS_COMMON 		= ${OBJDIR}/physics.o
 OBJS				= ${OBJDIR}/main_sequential.o \
 					  ${OBJDIR}/main_parallel.o \
 					  ${OBJS_COMMON}
-#########################################
+###################################################
 
 all: ${OBJDIR} ${BINDIR} \
 	${OBJS} \

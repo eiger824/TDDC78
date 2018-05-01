@@ -1,6 +1,6 @@
 #################### Variables ####################
 CC 					= gcc
-CFLAGS 				= -c -Wall -Wextra --std=c11 -g
+CFLAGS 				= -c -Wall -Wextra --std=c99 -g
 LDFLAGS 			= -lm
 
 TARGET_SEQ			= sequential

@@ -17,7 +17,7 @@
 
 void help(const char * program)
 {
-    printf("Usage: %s [h|n|x|y]\n", program);
+    printf("Usage: %s [h|n|x|y] <sim-time>\n", program);
     printf("-h\tPrint this help and exit\n");
     printf("-n nr\tSet number of particles\n");
     printf("-x size\tSet box horizontal size\n");

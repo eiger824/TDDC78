@@ -27,4 +27,6 @@ typedef struct particle
     int ptype;        /* Used to simulate mixing of gases */ 
 } particle_t;
 
+typedef unsigned int uint ;
+
 #endif

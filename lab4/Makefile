@@ -9,7 +9,8 @@ TARGET_PARALLEL 	= parallel
 OBJDIR				= obj
 BINDIR 				= bin
 
-OBJS_COMMON 		= ${OBJDIR}/physics.o
+OBJS_COMMON 		= ${OBJDIR}/physics.o \
+					  ${OBJDIR}/log.o
 OBJS				= ${OBJDIR}/main_sequential.o \
 					  ${OBJDIR}/main_parallel.o \
 					  ${OBJS_COMMON}

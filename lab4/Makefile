@@ -1,6 +1,6 @@
 #################### Variables ####################
 CC 					= gcc
-CFLAGS 				= -c -Wall -Wextra --std=c99 -g
+CFLAGS 				= -c -Wall -Wextra --std=c99 -g -I/usr/include/mpi
 LDFLAGS 			= -lm
 
 TARGET_SEQ			= sequential

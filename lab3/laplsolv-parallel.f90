@@ -8,11 +8,11 @@ use omp_lib
 ! Modified by Berkant Savas (besav@math.liu.se) April 2006
 ! Paralleled by Hao-Hsiang Liao May 2018
 !-----------------------------------------------------------------------
-  integer, parameter                  :: n=1000, maxiter=1000, nr_threads=11
+  integer, parameter                  :: n=1000, maxiter=1000, nr_threads=32
   double precision,parameter          :: tol=1.0E-3
   double precision,dimension(0:n+1,0:n+1) :: T
-  double precision                    :: error,x
-  real                                :: t1,t0
+  double precision                    :: error
+  double precision                    :: t1,t0
   integer                             :: i,j,k
   integer                             :: ratio,my_id
   integer,dimension(0:nr_threads-1)       :: start_pos,stop_pos
@@ -50,7 +50,7 @@ use omp_lib
      !tmp1=T(1:n,0)
      error=0.0D0
      
-     !$omp parallel private(j,tmp2,my_id) shared(T,tmp1) reduction(max: error)
+     !$omp parallel private(j,tmp2,my_id) shared(T,tmp1,start_pos,stop_pos) reduction(max: error)
      my_id = OMP_GET_THREAD_NUM()
 
      ! We need to assign various start_pos/stop_pos's previous one array for each thread, their relationship is tmp1=T(1:n,j-1) when tmp2=T(1:n,j)
@@ -59,7 +59,9 @@ use omp_lib
      do j=start_pos(my_id),stop_pos(my_id)!-1
         tmp2=T(1:n,j)
         T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+T(1:n,j+1)+tmp1(0:n-1,my_id))/4.0D0
+        !$omp critical
         error=max(error,maxval(abs(tmp2-T(1:n,j))))
+        !$omp end critical
         tmp1(0:n-1,my_id)=tmp2
      end do
      !$omp end parallel

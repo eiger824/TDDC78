@@ -11,6 +11,7 @@
 #include "definitions.h"
 #include "physics.h"
 #include "log.h"
+#include "mpi_utils.h"
 
 
 //Feel free to change this program to facilitate parallelization.
@@ -45,8 +46,10 @@ int main(int argc, char** argv)
     uint nr_particles = INIT_NO_PARTICLES;
     int horiz_size = BOX_HORIZ_SIZE;
     int vert_size = BOX_VERT_SIZE;
+    int my_id;  /* My MPI ID */
+    int np;  /* Nr. of processors */
 
-    // parse arguments
+    // Parse arguments
     while ((c = getopt(argc, argv, "hn:x:y:v")) != -1)
     {
         switch (c)
@@ -73,7 +76,7 @@ int main(int argc, char** argv)
     }
     if (optind == argc)
     {
-        fprintf(stderr, "Error: simulation time is missing\n");
+        log_error("Error: simulation time is missing");
         help(argv[0]);
         exit(1);
     }
@@ -81,6 +84,17 @@ int main(int argc, char** argv)
 
     log_info("Nr. particles: %u, Box hz. size: %d, Box vt. size: %d, Simulation time: %d.",
             nr_particles, horiz_size, vert_size, time_max);
+
+    /* Init MPI Environment */
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+    log_info("#processors:\t%d, my ID:\t%d", np, my_id);
+
+    /* Declare our MPI datatypes */
+    DECLARE_MPI_COORDINATE_DATATYPE(cord_t, cord_mpi_t)
+    DECLARE_MPI_PARTICLE_COORDINATE_DATATYPE(pcord_t, pcord_mpi_t)
+    DECLARE_MPI_PARTICLE_DATATYPE(particle_t, particle_mpi_t, pcord_mpi_t)
 
     /* Initialize */
     // 1. set the walls
@@ -150,12 +164,14 @@ int main(int argc, char** argv)
         }
     }
 
-
+    /* Don't use log.h functions: we want to always output something */
     printf("Average pressure = %f\n", pressure / (WALL_LENGTH * time_max));
 
     free(particles);
     free(collisions);
 
+    /* Finalyze MPI running environment */
+    MPI_Finalize();
     return 0;
 
 }

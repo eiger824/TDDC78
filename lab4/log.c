@@ -17,7 +17,7 @@ void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
         unsigned line,        /* line: The current line where the logging line is */
         const char* msg, ...) /* msg: Formated message with following (variadic) args */
 {
-    if (g_enabled)
+    if ( (g_enabled && level) || !level )  /* Log to stdout if verbose enabled ** or ** if logging to stderr ALWAYS */
     {
         //update the time struct
         gettimeofday(&time_after, NULL);
@@ -38,10 +38,10 @@ void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
         time_str[strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", tm_info)] = '\0';
 
         char usecs_str[20];
-        usecs_str[sprintf(usecs_str, ".%06ld", usecs)] = '\0';
+        usecs_str[sprintf(usecs_str, "%06ld", usecs)] = '\0';
 
         if (!level)
-            fprintf(stderr, "[%s.%s] (%s:%d) ", time_str, usecs_str, filename, line);
+            fprintf(stderr, ERROR_COLOR"[%s.%s] (%s:%d) ", time_str, usecs_str, filename, line);
         else
             printf("[%s%s] (%s:%d) ", time_str, usecs_str, filename, line);
 
@@ -49,12 +49,12 @@ void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
         if (!level)
         {
             vfprintf(stderr, msg, args);
-            fprintf(stderr, "\n");
+            fprintf(stderr, NORMAL_COLOR"\n");
         }
         else
         {
             vfprintf(stdout, msg, args);
-            printf("\n");
+            printf(NORMAL_COLOR"\n");
         }
         va_end(args);
 

@@ -8,14 +8,14 @@ use omp_lib
 ! Modified by Berkant Savas (besav@math.liu.se) April 2006
 ! Paralleled by Hao-Hsiang Liao May 2018
 !-----------------------------------------------------------------------
-  integer, parameter                  :: n=1000, maxiter=1000, nr_threads=1
+  integer, parameter                  :: n=1000, maxiter=1000, nr_threads=11
   double precision,parameter          :: tol=1.0E-3
   double precision,dimension(0:n+1,0:n+1) :: T
   double precision                    :: error,x
   real                                :: t1,t0
   integer                             :: i,j,k
   integer                             :: ratio,my_id
-  integer,dimension(nr_threads)       :: start_pos,stop_pos
+  integer,dimension(0:nr_threads-1)       :: start_pos,stop_pos
   character(len=20)                   :: str
   double precision,dimension(n)       :: tmp2
   double precision,dimension(0:n-1,0:nr_threads-1) :: tmp1

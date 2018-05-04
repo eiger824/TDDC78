@@ -7,4 +7,4 @@ laplsolv-parallel: laplsolv-parallel.f90
 	ifort -fopenmp $^ -o $@
 
 clean:
-	rm -f *~ lablsolv-*
+	rm -f *~ laplsolv-parallel laplsolv-sequential

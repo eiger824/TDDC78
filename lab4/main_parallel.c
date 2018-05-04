@@ -127,6 +127,10 @@ int main(int argc, char** argv)
 
     uint p, pp;
 
+    /* Start simulation */
+    double starttime, endtime;
+    starttime = MPI_Wtime();
+
     /* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
@@ -164,15 +168,19 @@ int main(int argc, char** argv)
         }
     }
 
+    endtime = MPI_Wtime();
+
     /* Don't use log.h functions: we want to always output something */
-    printf("Average pressure = %f\n", pressure / (WALL_LENGTH * time_max));
+    printf("Average pressure = %f, elapsed time = %.2f secs\n",
+            pressure / (WALL_LENGTH * time_max),
+            endtime - starttime);
 
     free(particles);
     free(collisions);
 
     /* Finalyze MPI running environment */
     MPI_Finalize();
-    return 0;
 
+    return 0;
 }
 

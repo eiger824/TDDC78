@@ -10,7 +10,8 @@ OBJDIR				= obj
 BINDIR 				= bin
 
 OBJS_COMMON 		= ${OBJDIR}/physics.o \
-					  ${OBJDIR}/log.o
+					  ${OBJDIR}/log.o \
+					  ${OBJDIR}/mpi_utils.o
 OBJS				= ${OBJDIR}/main_sequential.o \
 					  ${OBJDIR}/main_parallel.o \
 					  ${OBJS_COMMON}
@@ -27,8 +28,8 @@ ${OBJDIR}:
 ${BINDIR}:
 	test -d ${BINDIR} || mkdir ${BINDIR}
 
-${OBJDIR}/%.o: %.c
-	${CC} ${CFLAGS} -o $@ $^
+${OBJDIR}/%.o: %.c definitions.h
+	${CC} ${CFLAGS} -o $@ $<
 
 ${BINDIR}/${TARGET_SEQ}: ${OBJDIR}/main_sequential.o ${OBJS_COMMON} 
 	${CC} -o $@ $^ ${LDFLAGS} 

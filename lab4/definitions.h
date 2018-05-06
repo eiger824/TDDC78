@@ -1,13 +1,13 @@
+#ifndef _definitions_h
+#define _definitions_h
+
 #include <stdlib.h>
 #include <math.h>
 
 #include "coordinate.h"
 #include "physics.h"
 
-#ifndef _definitions_h
-#define _definitions_h
-
-#define PI 3.141592653
+#define PI                      3.141592653
 
 #define MAX_NO_PARTICLES        15000  /* Maximum number of particles/processor */
 #define INIT_NO_PARTICLES       500    /* Initial number of particles/processor */

@@ -5,11 +5,11 @@
 #include "log.h"
 
 static struct   timeval time_before, time_after, time_result;
-static bool     g_enabled = false;
+static level_t g_level = SILENT;
 
-void log_enable(bool enable)
+void log_enable(level_t level)
 {
-    g_enabled = enable;
+    g_level = level;
 }
 
 void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
@@ -17,7 +17,7 @@ void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
         unsigned line,        /* line: The current line where the logging line is */
         const char* msg, ...) /* msg: Formated message with following (variadic) args */
 {
-    if ( (g_enabled && level) || !level )  /* Log to stdout if verbose enabled ** or ** if logging to stderr ALWAYS */
+    if ( level <= g_level || level == ERROR )  /* Logging to stderr ALWAYS on */
     {
         //update the time struct
         gettimeofday(&time_after, NULL);

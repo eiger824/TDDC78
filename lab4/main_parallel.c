@@ -54,8 +54,10 @@ int main(int argc, char** argv)
     int total_number_of_particles;
     int dims[2];
     int my_coords[2];
-    int right_nbr[2];
-    int right_nbr_id;
+    int horizontal_nbr[2];
+    int vertical_nbr[2];
+    int horizontal_nbr_id;
+    int vertical_nbr_id;
 
     // Parse arguments
     while ((c = getopt(argc, argv, "hn:x:y:v")) != -1)
@@ -82,7 +84,7 @@ int main(int argc, char** argv)
                 vert_size = atoi(optarg);
                 break;
             case 'v':
-                log_enable(true);
+                log_enable(INFO);
                 break;
             default:
                 help(argv[0]);
@@ -114,7 +116,7 @@ int main(int argc, char** argv)
     MPI_Dims_create( np, 2, dims);
     int periods[2];
     periods[0] = 1;  /* Periodic in rows */
-    periods[1] = 0;  /* Non-periodic in columns */
+    periods[1] = 1;  /* Periodic in columns */
 
     int reorder = 1; /* Reorder allowed */
 
@@ -128,10 +130,14 @@ int main(int argc, char** argv)
 
     MPI_Cart_rank( grid_comm, my_coords, &my_id );
 
-    right_nbr[0] = my_coords[0] + 1;
-    right_nbr[1] = my_coords[1];
+    /* Determine my neighbors */
+    horizontal_nbr[0] = my_coords[0] + 1;
+    horizontal_nbr[1] = my_coords[1];
+    vertical_nbr[0] = my_coords[0];
+    vertical_nbr[1] = my_coords[1] + 1;
 
-    MPI_Cart_rank ( grid_comm, right_nbr, & right_nbr_id );
+    MPI_Cart_rank ( grid_comm, horizontal_nbr, & horizontal_nbr_id );
+    MPI_Cart_rank ( grid_comm, vertical_nbr, & vertical_nbr_id );
     /**********************************************************************/
 
     total_number_of_particles = nr_particles * np;
@@ -140,7 +146,10 @@ int main(int argc, char** argv)
         log_info("Total amount of existent particles in the box:\t%d", total_number_of_particles);
         log_info("(Grid dimensions are: %d x %d)", dims[0], dims[1]);
     }
-    log_info("[ID=%d] My process rank cartesian coordinates: (x=%d, y=%d).", my_id, my_coords[0], my_coords[1]);
+    log_debug("[ID=%d] (x=%d, y=%d). My horizontal neighbor [ID=%d] (x=%d ,y=%d). My vertical neighbor [ID=%d] (x=%d, y=%d)."
+            , my_id, my_coords[0], my_coords[1]
+            , horizontal_nbr_id, horizontal_nbr[0] , horizontal_nbr[1]
+            , vertical_nbr_id, vertical_nbr[0] , vertical_nbr[1]);
 
     /* Declare our MPI datatypes */
     DECLARE_MPI_COORDINATE_DATATYPE(cord_t, cord_mpi_t);
@@ -183,26 +192,42 @@ int main(int argc, char** argv)
     double starttime, endtime;
     starttime = MPI_Wtime();
 
+    /* IDEA: Every core will be assigned a grid region, determined by
+     * `my_coords`. Whenever a certain particle "hits" the boundary
+     * between grid regions, i.e., a particle may be "changing" regions,
+     * we need to check if my neighbor has another particle that will
+     * collide with our particle. Which neighbor will be determined by
+     * which boundary our particle is traversing to: either our horizontal
+     * neighbor or our vertical neighbour. If a collision is bound to
+     * happen at that particular simulation time, we need to interact
+     * both particles. */
+
     /* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
+        /* Sett the whole collisions array to false */
         init_collisions(collisions, nr_particles);
 
         for (p = 0; p < nr_particles; p++) // for all particles
         {
-            if (collisions[p]) continue;
-
-            /* check for collisions */
-            for (pp = p + 1; pp < nr_particles; pp++)
+            if ( !collisions[p] )
             {
-                if (collisions[pp]) continue;
-
-                float t = collide(&particles[p], &particles[pp]);
-                if (t != -1) // collision
+                /* check for collisions */
+                for (pp = p + 1; pp < nr_particles; pp++)
                 {
-                    collisions[p] = collisions[pp] = 1;
-                    interact(&particles[p], &particles[pp], t);
-                    break; // only check collision of two particles
+                    if ( !collisions[pp] )
+                    {
+                        float t = collide(&particles[p], &particles[pp]);
+                        if (t != -1) // collision
+                        {
+                            collisions[p] = collisions[pp] = 1;
+                            interact(&particles[p], &particles[pp], t);
+                            log_debug("[ID=%d] Particles p%u(%.2f,%.2f) and p%u(%.2f,%.2f) will collide in t=%.2f",
+                                    my_id, p, particles[p].x, particles[p].y,
+                                    pp, particles[pp].x, particles[pp].y, t);
+                            break; // only check collision of two particles
+                        }
+                    }
                 }
             }
         }
@@ -210,9 +235,14 @@ int main(int argc, char** argv)
         // move particles that has not collided with another
         for (p = 0; p < nr_particles; p++)
         {
-            if (!collisions[p])
+            if ( !collisions[p] )
             {
                 feuler(&particles[p], 1);
+
+                /* Now we want to check if a particle in my grid region is
+                 * close to colliding with another particle in my neighbor's
+                 * region */
+                
 
                 /* check for wall interaction and add the momentum */
                 pressure += wall_collide(&particles[p], wall);

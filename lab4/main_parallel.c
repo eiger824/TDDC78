@@ -12,6 +12,7 @@
 #include "physics.h"
 #include "log.h"
 #include "mpi_utils.h"
+#include "utils.h"
 
 
 //Feel free to change this program to facilitate parallelization.
@@ -22,6 +23,7 @@ void help(const char * program)
     printf("-h\tPrint this help and exit\n");
     printf("-n nr\tSet number of particles each processor will handle\n\t(default: %d, max: %d)\n",
             INIT_NO_PARTICLES, MAX_NO_PARTICLES);
+    printf("-p\tPrint a scaled representation of the final box\n");
     printf("-x size\tSet box horizontal size (default: %.2f)\n",
             BOX_HORIZ_SIZE);
     printf("-y size\tSet box vertical size (default: %.2f)\n",
@@ -46,6 +48,7 @@ int main(int argc, char** argv)
     uint time_stamp = 0, time_max;
     float pressure = 0;
     int c;
+    int show_box = 0;
     uint nr_particles = INIT_NO_PARTICLES;
     int horiz_size = BOX_HORIZ_SIZE;
     int vert_size = BOX_VERT_SIZE;
@@ -60,7 +63,7 @@ int main(int argc, char** argv)
     int vertical_nbr_id;
 
     // Parse arguments
-    while ((c = getopt(argc, argv, "hn:x:y:v")) != -1)
+    while ((c = getopt(argc, argv, "hn:px:y:v")) != -1)
     {
         switch (c)
         {
@@ -76,6 +79,9 @@ int main(int argc, char** argv)
                     help(argv[0]);
                     exit(1);
                 }
+                break;
+            case 'p':
+                show_box = 1;
                 break;
             case 'x':
                 horiz_size = atoi(optarg);
@@ -261,6 +267,8 @@ int main(int argc, char** argv)
         printf("Average pressure = %f, elapsed time = %.2f secs\n",
                 pressure / (WALL_LENGTH * time_max),
                 endtime - starttime);
+        if (show_box)
+            print_box(horiz_size, vert_size, particles, nr_particles);
     }
 
     free(particles);

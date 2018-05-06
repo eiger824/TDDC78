@@ -11,7 +11,8 @@ BINDIR 				= bin
 
 OBJS_COMMON 		= ${OBJDIR}/physics.o \
 					  ${OBJDIR}/log.o \
-					  ${OBJDIR}/mpi_utils.o
+					  ${OBJDIR}/mpi_utils.o \
+					  ${OBJDIR}/utils.o
 OBJS				= ${OBJDIR}/main_sequential.o \
 					  ${OBJDIR}/main_parallel.o \
 					  ${OBJS_COMMON}

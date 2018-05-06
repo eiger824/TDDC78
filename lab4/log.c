@@ -12,7 +12,7 @@ void log_enable(level_t level)
     g_level = level;
 }
 
-void print(unsigned level,       /* level: ERROR (stderr) / INFO (stdout) */
+void print(level_t level,       /* level: ERROR (stderr) / INFO (stdout) */
         const char* filename, /* filename: The current file where the logging line is */
         unsigned line,        /* line: The current line where the logging line is */
         const char* msg, ...) /* msg: Formated message with following (variadic) args */

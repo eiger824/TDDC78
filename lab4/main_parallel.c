@@ -215,8 +215,8 @@ int main(int argc, char** argv)
     srand( time(NULL) + 1234 );
 
     // 2. allocate particle buffers and initialize the particles
-    pcord_t * particles   = (pcord_t *) malloc (nr_particles * sizeof(pcord_t) );
-    bool * collisions  = (bool *)    malloc (nr_particles * sizeof(bool) );
+    pcord_t * particles = (pcord_t *) malloc (nr_particles * sizeof(pcord_t) );
+    bool * collisions   = (bool *)    malloc (nr_particles * sizeof(bool) );
     
     /* The particles will now be generated in each processor's grid region */
     float r, a;
@@ -262,6 +262,8 @@ int main(int argc, char** argv)
      * both particles. */
 
     /* Main loop */
+    int neighbor_coordinates[2];
+    int neighbor_rank;
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
         log_debug("At time stamp %d", time_stamp);
@@ -304,7 +306,7 @@ int main(int argc, char** argv)
                 /* Now we want to check if a particle in my grid region is
                  * close to colliding with another particle in my neighbor's
                  * region */
-                if (is_particle_in_grid_boundary(&particles[p], limits)) 
+                if (is_particle_outside_grid_boundary(&particles[p], limits, horiz_size, vert_size, dims, neighbor_coordinates)) 
                 {
                     /* Then I want to ask my neighbor(s) if they have a similar
                      * particle in our shared boundary in order to interact them.
@@ -317,6 +319,11 @@ int main(int argc, char** argv)
                      * They all check if they have a particle in the neighboring
                      * limit.
                      * */
+                    // Send the particle to my neighbor, its coordinates have been specified
+                    // with the above function into `neighbor_coordinates`
+                    MPI_Cart_rank( grid_comm, neighbor_coordinates, &neighbor_rank);
+                    MPI_Request req;
+                    MPI_Issend((void *)&particles[p], 1, pcord_mpi_t, neighbor_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &req);
                 }
 
                 /* check for wall interaction and add the momentum */

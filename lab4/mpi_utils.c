@@ -57,13 +57,47 @@ cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * 
     return out;
 }
 
-bool is_particle_in_grid_boundary(pcord_t * p1, cord_t * limits) 
+bool is_particle_inside_grid_boundary(pcord_t * p1, cord_t * my_limits) 
 {
-    return p1->x == limits->x0 || p1->x == limits->x1 || p1->y == limits->y0 || p1->y == limits->y1; 
+    return p1->x >= my_limits->x0 && p1->x <= my_limits->x1 && p1->y >= my_limits->y0 && p1->y <= my_limits->y1; 
 }
 
-void print_limits(uint id, cord_t * limits)
+bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits,
+        const uint hsize, const uint vsize, const int * dims, int * nbr_coord )
+{
+    if (!is_particle_inside_grid_boundary(p1, my_limits))
+    {
+        // Update the neighbor where it actually is
+        get_grid_region_of_particle(p1, hsize, vsize, dims, nbr_coord); 
+        return true;
+    }
+    return false;
+}
+
+void print_limits(uint id, cord_t * my_limits)
 {
     printf("[ID=%u] (x0,y0) = (%.2f,%.2f),\t\t(x1,y1) = (%.2f,%.2f)\n", id,
-            limits->x0, limits->y0, limits->x1, limits->y1);
+            my_limits->x0, my_limits->y0, my_limits->x1, my_limits->y1);
+}
+
+// Given a coordinate p1, determine its cartesian coordinates in the MPI 2D topology
+void get_grid_region_of_particle(pcord_t * p, const uint hsize, const uint ysize, const int * dims, int * my_grid )
+{
+    int x = p->x;
+    int y = p->y;
+
+    int rows = dims[0];
+    int cols = dims[1];
+
+    int xstep = hsize / cols;
+    int ystep = ysize / rows;
+
+    uint i,j;
+    for (i = xstep; i <= hsize; i += xstep)
+        if (i >= x) break;
+    my_grid[1] = i / xstep - 1;
+
+    for (j = ystep; j <= ysize; j += ystep)
+        if (j >= y) break;
+    my_grid[0] = j / ystep - 1;
 }

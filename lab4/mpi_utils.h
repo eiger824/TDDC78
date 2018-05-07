@@ -137,7 +137,12 @@ int compute_closest_factors(const uint nproc, int * dims);
 cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * grid, const int * dims);
 
 
-bool is_particle_in_grid_boundary(pcord_t * p1, cord_t * limits);
+bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits,
+        const uint hsize, const uint vsize, const int * dims, int * nbr_coord );
 
 void print_limits(uint id, cord_t * limits);
+
+// bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits, int * nbr_coord );
+
+void get_grid_region_of_particle(pcord_t * p, const uint hsize, const uint ysize, const int * dims, int * my_grid );
 #endif  /* MPI_UTILS_H_ */

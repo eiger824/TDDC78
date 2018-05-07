@@ -153,13 +153,3 @@ void interact(pcord_t *p1,pcord_t *p2, float t)
 
 }
 
-// Return coordinates of the grid region
-cord_t * get_my_grid_boundaries(const pcord_t * p1, const int * grid, const int * dims)
-{
-    
-}
-
-bool is_particle_in_grid_boundary(pcord_t * p1, const uint np, const int * grid, const uint wall_x, const uint wall_y)
-{
-    
-}

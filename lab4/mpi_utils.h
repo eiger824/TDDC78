@@ -2,6 +2,7 @@
 #define MPI_UTILS_H_
 
 #include <stdarg.h>
+#include <stdbool.h>
 
 #include "definitions.h"
 
@@ -124,4 +125,19 @@ int check_if_prime(const uint nproc);
  */
 int compute_closest_factors(const uint nproc, int * dims);
 
+/*
+ * Function:	get_my_grid_boundaries
+ * Brief:	    Given a some MPI cartesian coordinates, it returns its physical limits
+ * @param hsize:Horizontal size of the box
+ * @param vsize:Vertical size of the box
+ * @param grid:	My cartesian coordinates in the MPI topology
+ * @param dims:	The dimension of the MPI 2D topology matrix.
+ * Returns:	    The limits of the grid region
+*/
+cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * grid, const int * dims);
+
+
+bool is_particle_in_grid_boundary(pcord_t * p1, cord_t * limits);
+
+void print_limits(uint id, cord_t * limits);
 #endif  /* MPI_UTILS_H_ */

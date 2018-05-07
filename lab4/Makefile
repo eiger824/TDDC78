@@ -39,4 +39,4 @@ ${BINDIR}/${TARGET_PARALLEL}: ${OBJDIR}/main_parallel.o ${OBJS_COMMON}
 	${CC} -o $@ $^ ${LDFLAGS} 
 
 clean:
-	rm -rf *.o *~ ${OBJDIR} ${BINDIR} *.swp
+	rm -rf *.o *~ ${OBJDIR} ${BINDIR} .*sw* core*

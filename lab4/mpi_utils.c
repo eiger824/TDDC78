@@ -43,3 +43,27 @@ int compute_closest_factors(const uint nproc, int * dims)
     return 0;
 }
 
+// Return coordinates of the grid region
+cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * grid, const int * dims)
+{
+    cord_t * out = (cord_t * ) malloc (sizeof(cord_t));
+
+    out->x0 = grid[0] * hsize / dims[1];
+    out->y0 = grid[1] * vsize / dims[0];
+
+    out->x1 = (grid[0] + 1) * hsize / dims[1];;
+    out->y1 = (grid[1] + 1) * vsize / dims[0];
+
+    return out;
+}
+
+bool is_particle_in_grid_boundary(pcord_t * p1, cord_t * limits) 
+{
+    return p1->x == limits->x0 || p1->x == limits->x1 || p1->y == limits->y0 || p1->y == limits->y1; 
+}
+
+void print_limits(uint id, cord_t * limits)
+{
+    printf("[ID=%u] (x0,y0) = (%.2f,%.2f),\t\t(x1,y1) = (%.2f,%.2f)\n", id,
+            limits->x0, limits->y0, limits->x1, limits->y1);
+}

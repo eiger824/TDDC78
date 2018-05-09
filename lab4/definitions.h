@@ -2,6 +2,7 @@
 #define _definitions_h
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include "coordinate.h"
@@ -13,6 +14,7 @@
 #define INIT_NO_PARTICLES       500    /* Initial number of particles/processor */
 #define MAX_INITIAL_VELOCITY    50
 
+#define DEFAULT_TSTEP           1.00
 
 #define BOX_HORIZ_SIZE          10000.0
 #define BOX_VERT_SIZE           10000.0

@@ -19,7 +19,7 @@ void dll_destroy(dll_t * list)
 	free(list);
 }
 
-void dll_insert_after(dll_t * list, dll_node_t *node, part_coll_t * p)
+void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t * p)
 {
 	dll_node_t *new_node = (dll_node_t *) malloc(sizeof(dll_node_t));
 	list->count++;
@@ -37,7 +37,7 @@ void dll_insert_after(dll_t * list, dll_node_t *node, part_coll_t * p)
     new_node->p = p;
 }
 
-void dll_insert_before(dll_t * list, dll_node_t *node, part_coll_t * p)
+void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t * p)
 {
 	dll_node_t *new_node = (dll_node_t *) malloc(sizeof(dll_node_t));
 	list->count++;
@@ -55,7 +55,7 @@ void dll_insert_before(dll_t * list, dll_node_t *node, part_coll_t * p)
     new_node->p = p;
 }
 
-void dll_insert_beginning(dll_t * list, part_coll_t * p)
+void dll_insert_beginning(dll_t * list, pcord_t * p)
 {
 	if (list->first == NULL)
 	{
@@ -73,12 +73,12 @@ void dll_insert_beginning(dll_t * list, part_coll_t * p)
 	}
 }
 
-void dll_prepend(dll_t * list, part_coll_t * p)
+void dll_prepend(dll_t * list, pcord_t * p)
 {
     dll_insert_beginning(list, p);
 }
 
-void dll_insert_end(dll_t * list, part_coll_t * p)
+void dll_insert_end(dll_t * list, pcord_t * p)
 {
 	if (list->last == NULL)
 	{
@@ -90,7 +90,7 @@ void dll_insert_end(dll_t * list, part_coll_t * p)
 	}
 }
 
-void dll_append(dll_t * list, part_coll_t * p)
+void dll_append(dll_t * list, pcord_t * p)
 {
     dll_insert_end(list, p);
 }
@@ -102,25 +102,11 @@ void dll_empty(dll_t * list)
 	{
 		temp_first_node = list->first;
 		list->first = list->first->next;
-        free(temp_first_node->p->particle);
         free(temp_first_node->p);
 		free(temp_first_node);
 	}
 	list->count = 0;
 	list->last = NULL;
-}
-
-void dll_init_collisions(dll_t * list)
-{
-
-    if (!list->count) return;
-    dll_node_t * node = list->first;
-    while (node != list->last->next)
-    {
-        part_coll_t * ptr = node->p;
-        ptr->collision = false;
-        node = node->next;
-    }
 }
 
 void dll_print(dll_t * list)
@@ -132,10 +118,9 @@ void dll_print(dll_t * list)
     int count = 0 ;
     while (node != list->last->next)
     {
-        part_coll_t * ptr = node->p;
-        printf("Particle %d: x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f. \tCollision: %s\n", count++,
-                ptr->particle->x, ptr->particle->y, ptr->particle->vx, ptr->particle->vy,
-                ptr->collision ? "true" : "false");
+        pcord_t * ptr = node->p;
+        printf("Particle %d: x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f.\n", count++,
+                ptr->x, ptr->y, ptr->vx, ptr->vy);
         node = node->next;
     }
 }
@@ -147,10 +132,9 @@ void dll_print_node(dll_node_t * list)
         printf("Not found.\n");
         return;
     }
-    part_coll_t * ptr = list->p;
-    printf("Particle  : x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f. \tCollision: %s\n",
-            ptr->particle->x, ptr->particle->y, ptr->particle->vx, ptr->particle->vy,
-            ptr->collision ? "true" : "false");
+    pcord_t * ptr = list->p;
+    printf("Particle : x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f.\n",
+            ptr->x, ptr->y, ptr->vx, ptr->vy);
 }
 
 dll_t * dll_copy_list(dll_t * rhs)
@@ -170,24 +154,22 @@ int dll_is_empty(dll_t * list)
     return !list->count;
 }
 
-void dll_extract(dll_t * list, dll_node_t *node, part_coll_t * p)
+bool dll_extract(dll_t * list, dll_node_t *node, pcord_t * p)
 {
-    p->collision = node->p->collision;
-    p->particle = (pcord_t * ) malloc (sizeof(pcord_t));
-    memcpy(p->particle, node->p->particle, sizeof(pcord_t));
-	dll_delete(list, node);
+    memcpy(p, node->p, sizeof(pcord_t));
+    return dll_delete(list, node);
 }
 
-bool dll_extract_at(dll_t * list, int index, part_coll_t * p)
+bool dll_extract_at(dll_t * list, int index, pcord_t * p)
 {
     dll_node_t * node = dll_at(list, index);
     if (!node)
         return false;
-    dll_extract(list, node, p);
-    return true;
+    return dll_extract(list, node, p);
 }
 
-void dll_delete(dll_t * list, dll_node_t *node)
+/* Return true if there are still elements on the list */
+bool dll_delete(dll_t * list, dll_node_t *node)
 {
 	if (node->prev == NULL)
     {
@@ -197,7 +179,7 @@ void dll_delete(dll_t * list, dll_node_t *node)
 	{
 		node->prev->next = node->next;
 	}
-	if (node->next == NULL)
+    if (node->next == NULL)
 	{
 		list->last = node->prev;
 	}
@@ -205,18 +187,17 @@ void dll_delete(dll_t * list, dll_node_t *node)
 	{
 		node->next->prev = node->prev;
 	}
-    free(node->p->particle);
     free(node->p);
 	free(node);
-	list->count--;
+    return (!--list->count ? false: true);
 }
 
-void dll_delete_at(dll_t * list, int index)
+bool dll_delete_at(dll_t * list, int index)
 {
     dll_node_t * node = dll_at(list, index);
     if (!node)
-        return;
-    dll_delete(list, node);
+        return false;
+    return dll_delete(list, node);
 }
 
 dll_node_t * dll_at(dll_t * list, int index)
@@ -235,3 +216,4 @@ dll_node_t * dll_at(dll_t * list, int index)
     }
     return NULL;
 }
+

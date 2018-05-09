@@ -15,9 +15,7 @@
 #include "utils.h"
 #include "dll.h"
 
-
 //Feel free to change this program to facilitate parallelization.
-
 void help(const char * program)
 {
     printf("Usage: %s [h|n|x|y] <sim-time>\n", program);
@@ -27,6 +25,7 @@ void help(const char * program)
     printf("-N nr\tSet the total number of particles in the box\n");
     printf("\t(note: this number should not exceed %d * <nr-available-cores>)\n", MAX_NO_PARTICLES);
     printf("-p\tPrint a scaled representation of the final box\n");
+    printf("-t step\tTime step to move the particles when they don't collide\n\t(default: %.2f)\n", DEFAULT_TSTEP);
     printf("-x size\tSet box horizontal size (default: %.2f)\n",
             BOX_HORIZ_SIZE);
     printf("-y size\tSet box vertical size (default: %.2f)\n",
@@ -39,11 +38,6 @@ float rand1()
     return (float)( rand()/(float) RAND_MAX );
 }
 
-void init_collisions(dll_t * list)
-{
-    dll_init_collisions(list);
-}
-
 int main(int argc, char** argv)
 {
     uint time_stamp = 0, time_max;
@@ -54,7 +48,7 @@ int main(int argc, char** argv)
     uint nr_particles = INIT_NO_PARTICLES;
     int horiz_size = BOX_HORIZ_SIZE;
     int vert_size = BOX_VERT_SIZE;
-    int my_id;  /* My MPI ID */
+    int my_id;  /* My MPI Id */
     int np;  /* Nr. of processors */
     int total_number_of_particles = -1;
     int dims[2];
@@ -63,10 +57,11 @@ int main(int argc, char** argv)
     int vertical_nbr[2];
     int horizontal_nbr_id;
     int vertical_nbr_id;
+    float time_step = DEFAULT_TSTEP;
     int mutual_excl_flag = 0;
 
     // Parse arguments
-    while ((c = getopt(argc, argv, "hn:N:px:y:v")) != -1)
+    while ((c = getopt(argc, argv, "hn:N:pt:x:y:v")) != -1)
     {
         switch (c)
         {
@@ -103,6 +98,9 @@ int main(int argc, char** argv)
                 break;
             case 'p':
                 show_box = 1;
+                break;
+            case 't':
+                time_step = atoi(optarg);
                 break;
             case 'x':
                 horiz_size = atoi(optarg);
@@ -205,7 +203,6 @@ int main(int argc, char** argv)
     DECLARE_MPI_PARTICLE_DATATYPE(particle_t, particle_mpi_t, pcord_mpi_t);
 
     /* Initialize */
-    // 1. set the walls
     cord_t wall;
     wall.y0 = wall.x0 = 0;
     wall.x1 = horiz_size;
@@ -214,11 +211,8 @@ int main(int argc, char** argv)
     /* Initialize the random seed */
     srand( time(NULL) + 1234 );
 
-    // 2. allocate particle buffers and initialize the particles
-    //     pcord_t * particles = (pcord_t *) malloc (nr_particles * sizeof(pcord_t) );
-    //     bool * collisions   = (bool *)    malloc (nr_particles * sizeof(bool) );
     /* Initalize the doubly linked list */
-    dll_t * list = dll_init();
+    dll_t * my_list = dll_init();
 
     /* The particles will now be generated in each processor's grid region */
     float r, a;
@@ -235,11 +229,10 @@ int main(int argc, char** argv)
     print_limits(my_id, limits);
 
     // Needed types
-    pcord_t     *   particle;
-    part_coll_t *   composite;
+    pcord_t * particle;
     for (uint i = 0; i < nr_particles; i++)
     {
-        // Allocate memory for the particle structure
+        // Allocate memory for the particle
         particle = (pcord_t * ) malloc (sizeof *particle);
         // initialize random position in my assigned grid
         particle->x = xstart + rand1() * xend;
@@ -251,14 +244,8 @@ int main(int argc, char** argv)
         particle->vx = r * cos(a);
         particle->vy = r * sin(a);
 
-        // Allocate memory for the composite structure: particles + collisions
-        composite = (part_coll_t * ) malloc(sizeof *composite);
-        composite->particle = particle;
-        /* Initialize collisions to false */
-        composite->collision = false;
-
         // Append it to the list
-        dll_append(list, composite);
+        dll_append(my_list, particle);
     }
 
     uint p, pp;
@@ -277,125 +264,82 @@ int main(int argc, char** argv)
      * happen at that particular simulation time, we need to interact
      * both particles. */
 
-    /* Main loop */
+    dll_node_t * current_node,      * next_node;
+    pcord_t    * current_particle,  * next_particle, * particle_to_send;
+    int i,j;
+    bool collided;
     int neighbor_coordinates[2];
-    int neighbor_rank;
-    part_coll_t * composite_type_to_send;
-    pcord_t coord_to_send;
+    int neighbor_id;
+    dll_t * my_send_list = dll_init();
+    // Allocate a receive buffer big enough to hold at most extra nr_particles
+    pcord_t * receive_from_others = (pcord_t * ) malloc (sizeof *receive_from_others * nr_particles);
 
+    /* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
         log_debug("At time stamp %d", time_stamp);
-        /* Sett the whole collisions array to false */
-        init_collisions(list);
 
-        dll_node_t *    current_node = list->first;
-        part_coll_t *   current_data;
-        part_coll_t *   next_data;
-        bool            current_collision;
-        bool            next_collision;
-        pcord_t *       current_particle;
-        pcord_t *       next_particle;
+        /* At every time stamp, remove all elems from the send list */
+        dll_empty(my_send_list);
 
         /* Check for collisions */
-        while (current_node != list->last->next)
+        for (i = 0; i < my_list->count; ++i)
         {
-            current_data        = current_node->p; 
-            current_collision   = current_data->collision;
-            current_particle    = current_data->particle;
+            current_node        = dll_at(my_list, i);
+            current_particle    = current_node->p;
 
-            if (!current_collision)
+            collided = false;
+
+            for (j = i + 1; j < my_list->count; ++j)
             {
-                dll_node_t *    next_node = current_node->next;
-                while (next_node != list->last->next)
-                {
-                    next_data       = next_node->p;
-                    next_collision  = next_data->collision;
-                    next_particle   = next_data->particle;
+                next_node       = dll_at(my_list, j);
+                next_particle   = next_node->p;
 
-                    if (!next_collision)
-                    {
-                        float t = collide(current_particle, next_particle);
-                        if (t != -1)  // Collision
-                        {
-                            current_data->collision = next_data->collision = true;
-                            interact(current_particle, next_particle, t);
-                            break;
-                        }
-                    }
-                    next_node = next_node->next;
+                float t = collide(current_particle, next_particle);
+                if (t != -1)  // Collision
+                {
+                    collided = true;
+                    interact(current_particle, next_particle, t);
                 }
             }
 
-            // Update the next node
-            current_node = current_node->next;
-        }
+            /* Move particle that has not collided with another */
+            if (!collided)
+                feuler(current_particle, time_step);
 
-        /* Move particles that has not collided with another */
-        current_node = list->first;
-        while (current_node != list->last->next)
-        {
-            current_data        = current_node->p;
-            current_collision   = current_data->collision;
-            current_particle    = current_data->particle;
+            /* check for wall interaction and add the momentum */
+            pressure += wall_collide(current_particle, wall);
 
-            if (!current_collision)
+            /* Moving particles from my big list to the send list */
+            if (is_particle_outside_grid_boundary(
+                        current_particle, limits,
+                        horiz_size, vert_size,
+                        dims, neighbor_coordinates)) 
             {
-
-                /* Move the particle */
-                feuler(current_particle, 1);
-
-                /* Now we want to check if a particle in my grid region is
-                 * close to colliding with another particle in my neighbor's
-                 * region */
-                if (is_particle_outside_grid_boundary(current_particle, limits, horiz_size, vert_size, dims, neighbor_coordinates)) 
-                {
-                    /* Then I want to ask my neighbor(s) if they have a similar
-                     * particle in our shared boundary in order to interact them.
-                     *
-                     * Possible scenario:
-                     *
-                     * MPI_Bcast( ... send the particle here ... );
-                     *
-                     * Other nodes receive this particle.
-                     * They all check if they have a particle in the neighboring
-                     * limit.
-                     * */
-                    MPI_Cart_rank( grid_comm, neighbor_coordinates, &neighbor_rank);
-                    // Update the particle
-                    coord_to_send = *current_particle;
-                    // And broadcast it to everyone
-                    MPI_Bcast((void *)&coord_to_send, 1, pcord_mpi_t, my_id, MPI_COMM_WORLD);
-                    /* At this point, all processors have their own copy of composite_type_to_send
-                     * We can now remove this particle from our list */
-                    composite_type_to_send = (part_coll_t * ) malloc(sizeof *composite_type_to_send);
-                    dll_extract(list, current_node, composite_type_to_send);
-                }
-                /* Now, every processor need to check if `composite_type_to_send` belongs to them */
-                if (is_particle_inside_grid_boundary(&coord_to_send, limits))
-                {
-                    // Append it to our list
-                    dll_append(list, composite_type_to_send);
-                }
-
-                /* check for wall interaction and add the momentum */
-                pressure += wall_collide(current_particle, wall);
+                particle_to_send = (pcord_t * ) malloc (sizeof *particle_to_send);
+                // Extract it from my original list
+                dll_extract(my_list, current_node, particle_to_send);
+                // Append it to my send list
+                dll_append(my_send_list, particle_to_send);
             }
-            // Update the next node
-            current_node = current_node->next;
         }
+        // At this point, some particles may have disappeared from "my_list" and
+        // others may have appeared in "my_send_list". Now we want to handle the
+        // particles in "my_send_list" so they can be sent to their respective
+        // destinations
+        
 
     }
 
-//     MPI_Allreduce(&pressure, &global_pressure, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&pressure, &global_pressure, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
     endtime = MPI_Wtime();
 
     /* Synchronization point */
     MPI_Barrier(MPI_COMM_WORLD);
 
     /* Gather all particles if print (-p) option enabled, not mandatory */
-    pcord_t * all; 
 # if 0
+    pcord_t * all; 
     if (show_box)
     {
         all = (pcord_t * ) malloc(sizeof(pcord_t) * total_number_of_particles);
@@ -410,12 +354,16 @@ int main(int argc, char** argv)
         printf("Average pressure = %f, elapsed time = %.6f secs\n",
                 pressure / (WALL_LENGTH * time_max),
                 endtime - starttime);
+#if 0
         if (show_box)
         {
             print_box(horiz_size, vert_size, all, total_number_of_particles, dims);
         }
+#endif
     }
-    dll_destroy(list);
+    /* Free both allocated lists */
+    dll_destroy(my_list);
+    dll_destroy(my_send_list);
 
     /* Finalyze MPI running environment */
     MPI_Finalize();

@@ -77,7 +77,7 @@ bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits,
 
 void print_limits(uint id, cord_t * my_limits)
 {
-    log_info("[ID=%02u] (x0,y0) = (%.2f,%.2f),\t(x1,y1) = (%.2f,%.2f)", id,
+    log_warning("[ID=%02u] (x0,y0) = (%.2f,%.2f),\t(x1,y1) = (%.2f,%.2f)", id,
             my_limits->x0, my_limits->y0, my_limits->x1, my_limits->y1);
 }
 

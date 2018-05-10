@@ -45,6 +45,7 @@ int main(int argc, char** argv)
     float pressure = 0;
     float global_pressure = 0;
     int c;
+    int verbose = -1;
     int show_box = 0;
     uint nr_particles = INIT_NO_PARTICLES;
     int horiz_size = BOX_HORIZ_SIZE;
@@ -106,7 +107,7 @@ int main(int argc, char** argv)
                 vert_size = atoi(optarg);
                 break;
             case 'v':
-                log_enable(INFO);
+                verbose++;
                 break;
             default:
                 help(argv[0]);
@@ -120,6 +121,8 @@ int main(int argc, char** argv)
         exit(1);
     }
     time_max = atoi(argv[optind]);
+
+    log_enable(verbose);
 
     /* Init MPI Environment */
     MPI_Init(&argc, &argv);
@@ -212,6 +215,7 @@ int main(int argc, char** argv)
     ystart  = limits->y0; 
     yend    = limits->y1;
 
+    // warning mode only
     print_limits(my_id, limits);
 
     // Needed types
@@ -234,40 +238,35 @@ int main(int argc, char** argv)
         dll_append(my_list, particle);
     }
 
-    /* Start simulation */
-    double starttime, endtime;
-    starttime = MPI_Wtime();
-
-    /* IDEA: Every core will be assigned a grid region, determined by
-     * `my_coords`. Whenever a certain particle "hits" the boundary
-     * between grid regions, i.e., a particle may be "changing" regions,
-     * we need to check if my neighbor has another particle that will
-     * collide with our particle. Which neighbor will be determined by
-     * which boundary our particle is traversing to: either our horizontal
-     * neighbor or our vertical neighbour. If a collision is bound to
-     * happen at that particular simulation time, we need to interact
-     * both particles. */
 
     dll_node_t * current_node,      * next_node;
     pcord_t    * current_particle,  * next_particle, * particle_to_send;
     int i,j;
     bool collided;
     int neighbor_coordinates[2];
+
+
+
+
     dll_t * my_send_list = dll_init();
-    // Allocate a receive buffer big enough to hold at most extra nr_particles
-    pcord_t * receive_from_others = (pcord_t * ) malloc (sizeof *receive_from_others * nr_particles);
-	// Allocate an array containing how many particles for each node to send (init with zeros)
-	int * nr_particles_for_every_node = (int *) calloc (np, sizeof *nr_particles_for_every_node);
-	// Same array on the receive nodes
-	int * nr_particles_for_every_node_recv = (int *) calloc (np, sizeof *nr_particles_for_every_node_recv);
+    //
+    // We want to hold a "list of lists" with where each list will hold
+    // the particles to be sent to each processor
+
+
+    pcord_t ** travelling_particles = (pcord_t ** ) malloc (sizeof *travelling_particles * np);
+    /* Allocate place for at most "nr_particles" particles that leave a specific region */
+    for (unsigned i = 0; i < np; ++i)
+        *(travelling_particles + i) = (pcord_t * ) malloc (sizeof(pcord_t) * nr_particles);
+
+    /* Start simulation */
+    double starttime, endtime;
+    starttime = MPI_Wtime();
 
 	/* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
         log_debug("At time stamp %d", time_stamp);
-
-        /* At every time stamp, remove all elems from the send list */
-        dll_empty(my_send_list);
 
         /* Check for collisions */
         for (i = 0; i < my_list->count; ++i)
@@ -303,56 +302,108 @@ int main(int argc, char** argv)
                         horiz_size, vert_size,
                         dims, neighbor_coordinates)) 
             {
-                particle_to_send = (pcord_t * ) malloc (sizeof *particle_to_send);
-                // Extract it from my original list
-                dll_extract(my_list, current_node, particle_to_send);
-                // Append it to my send list
-                dll_append(my_send_list, particle_to_send);
 				// Determine what is the neigbor rank
 				int nbr_rank;
 				MPI_Cart_rank(grid_comm, neighbor_coordinates, &nbr_rank);
-				// Add up the particles to send for that neighbor
-				nr_particles_for_every_node[nbr_rank]++;
+
+                log_debug("Transfer: %d\t->\t%d", my_id, nbr_rank);
+
+                // Extract it from my original list
+                particle_to_send = (pcord_t * ) malloc (sizeof *particle_to_send);
+                dll_extract(my_list, current_node, particle_to_send);
+
+                // Append it to my send list
+                dll_append(my_send_list , particle_to_send);
             }
         }
         // At this point, some particles may have disappeared from "my_list" and
-        // others may have appeared in "my_send_list". Now we want to handle the
-        // particles in "my_send_list" so they can be sent to their respective
-        // destinations
+        // others may have appeared in the correspondent list of "my_send_lists".
+        // Now we want to handle the particles in "my_send_lists" so they can be
+        // sent to their respective destinations
 
-		int ** matrix = (int ** ) malloc (sizeof *matrix * np);
-		for (unsigned i = 0; i < np; ++i)
-			*(matrix + i) = (int * ) calloc (np, sizeof(int));
+        /* Convert my send-list to an array of coordinates */
+        pcord_t * my_particles = dll_to_array(my_send_list);
+        memcpy(*(travelling_particles + my_id), my_particles, sizeof(pcord_t) * my_send_list->count);
 
-		// At this point, only I know the count of the elements to send
-		memcpy(*(matrix + my_id), nr_particles_for_every_node, sizeof(int) * np);
+        /* At this point, the matrix "travelling particles should already be filled */
+        MPI_Bcast(*(travelling_particles + my_id), my_send_list->count, pcord_mpi_t, my_id, MPI_COMM_WORLD);
 
-		// Send my row to everyone
-		MPI_Bcast(*(matrix + my_id), np, MPI_INT, my_id, MPI_COMM_WORLD);
+        /* Synchronization point, needed for the next operation */
+        MPI_Barrier(MPI_COMM_WORLD);
 
-		// Let's see if matrix works
-		for (unsigned i = 0; i < np; ++i)
-		{
-			for (unsigned j = 0; j < np; ++i)
-			{
-				printf("%d\t", matrix[i][j]);
-			}
-			printf("\n");
-		}
+        /* Loop through the travelling particle matrix and just append those particles
+         * that belong to my grid area */
+        for (unsigned i = 0; i < np; ++i)
+        {
+            for (unsigned j = 0; j < nr_particles; ++j)
+            {
+                pcord_t * current = *(travelling_particles + i) + j;
+                if (is_particle_inside_grid_boundary(current, limits))
+                {
+                    // Append this particle to "my_list"!
+                    dll_append(my_list, current);
+                    log_debug("[ID=%d] Appended new particle to my list. New size: %d",
+                            my_id, my_list->count);
+                }
+            }
+        }
 
-
-
-
-
-
-
-
-
-
-
-		//TODO: Replace my_send_list with my_send_array
 /*
-		unsigned sender, receiver;
+        unsigned sender, receiver;
+        MPI_Status status;
+        for (sender = 0; sender < np; ++sender)
+        {
+            for (receiver = 0; receiver < np; ++receiver)
+            {
+                if (sender != receiver)
+                {
+                    if (my_id == sender)
+                    {
+                        MPI_Send(nr_particles_for_every_node, np, MPI_INT, receiver, 1234, MPI_COMM_WORLD);
+                    }
+                    if (my_id == receiver)
+                    {
+                        MPI_Recv(*(counts + sender), np, MPI_INT, sender, 1234, MPI_COMM_WORLD, &status);
+                    }
+                }
+            }
+        }
+*/
+        /* ****************************************************************************
+         *
+         *
+         * Remove this section
+         *
+         * ***************************************************************************/
+/*
+        if (my_id == ROOT)
+        {
+            FILE * fp = fopen("counts.txt", "a+");
+            if (fp != NULL)
+            {
+                fprintf(fp, "At time stamp %d, the matrix looked like this:\n", time_stamp);
+                for (unsigned i = 0; i < np; ++i)
+                {
+                    for (unsigned j = 0; j < np; ++j)
+                    {
+                        fprintf(fp, "%d\t", counts[i][j]);
+                    }
+                    fprintf(fp, "\n");
+                }
+                fprintf(fp, "\n\n");
+                fclose(fp);
+            }
+        }
+
+*/
+        /* ****************************************************************************
+         *
+         *
+         *
+         * ***************************************************************************/
+        // Send the particles
+        
+/*
 		for (sender = 0; sender < np; ++sender) // sender -> sending process
 		{
 			for (receiver = 0; receiver < np; ++receiver) // receiver -> receiving process
@@ -361,18 +412,44 @@ int main(int argc, char** argv)
 				{
 					if (my_id == sender)
 					{
-// 						MPI_Send(my_send_array, nr_elems_to_send, pcord_mpi_t, receiver, 1234, MPI_COMM_WORLD);
+                        log_debug("ID=%d, sending to %d", sender, receiver);
+                        dll_t * tmp = *(my_send_lists + receiver);
+                        pcord_t * array_to_send = dll_to_array(tmp);
+                        if (array_to_send)
+                        {
+                            log_debug("(ptr '%p' seems legit.)", (void*)array_to_send);
+                        }
+                        MPI_Send(array_to_send, counts[sender][receiver], pcord_mpi_t,
+                                    receiver, 1234, MPI_COMM_WORLD);
 					}
 					if (my_id == receiver)
 					{
-						MPI_Status status;
-// 						MPI_Recv(my_recv_array, nr_elems_to_send, pcord_mpi_t, sender, 1234, MPI_COMM_WORLD, &status);
+                        log_debug("ID=%d, receiving from %d", receiver, sender);
+                        MPI_Recv(receive_from_others, counts[sender][receiver], pcord_mpi_t, sender, 1234, MPI_COMM_WORLD, &status);
+                        // At this point, "receive_from_others" contains particles that I should append to my main particle list
+                        for (unsigned i = 0; i < counts[sender][receiver]; ++i)
+                        {
+                            pcord_t * new = (pcord_t * ) malloc(sizeof *new);
+                            *new = *(receive_from_others + i);
+                            dll_append(my_list, new);
+                        }
 					}
 				}
 			}
 		}
-
 */
+        
+        /* After every time stamp, remove all elems from all send lists */
+        dll_empty(my_send_list);
+        /* And restore the counts */
+//         for (unsigned i = 0; i < np; ++i)
+//         {
+//             for (unsigned j = 0; j < np; ++j)
+//             {
+//                 counts[i][j] = 0;
+//             }
+//         }
+
     }
 
     MPI_Allreduce(&pressure, &global_pressure, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
@@ -381,36 +458,33 @@ int main(int argc, char** argv)
     /* Synchronization point */
     MPI_Barrier(MPI_COMM_WORLD);
 
-    /* Gather all particles if print (-p) option enabled, not mandatory */
-#if 0
-	pcord_t * indiv = dll_to_array(list);
-    pcord_t * all; 
-    if (show_box)
-    {
-        all = (pcord_t * ) malloc(sizeof(pcord_t) * total_number_of_particles);
-		MPI_Gatherv(indiv , list->count, pcord_mpi_t,
-                all, nr_particles, pcord_mpi_t,
-                ROOT, MPI_COMM_WORLD);
-    }
-#endif
     if (my_id == ROOT)
     {
         /* Don't use log.h functions: we want to always output something */
         printf("Average pressure = %f, elapsed time = %.6f secs\n",
                 pressure / (WALL_LENGTH * time_max),
                 endtime - starttime);
-#if 0
-        if (show_box)
-        {
-            print_box(horiz_size, vert_size, all, total_number_of_particles, dims);
-        }
-#endif
     }
-    /* Free both allocated lists */
+
+    /* Free stuff */
+#if 0
     dll_destroy(my_list);
-    dll_destroy(my_send_list);
+    for (unsigned i = 0; i < np; ++i)
+    {
+        void * ptr1 = (void * ) *(counts + i);
+        void * ptr2 = (void * ) *(my_send_lists + i);
+//         free(*(counts + i));
+//         dll_destroy(*(my_send_lists + i));
+        printf("Freeing %p and %p\n", ptr1, ptr2);
+        free(ptr1);
+        free(ptr2);
+    }
+    free(counts);
+    free(my_send_lists);
+#endif
 
     /* Finalyze MPI running environment */
+    log_debug("[ID=%d] Done. Au revoir!", my_id);
     MPI_Finalize();
 
     return 0;

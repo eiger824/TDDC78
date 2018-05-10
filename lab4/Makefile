@@ -16,13 +16,15 @@ OBJS_COMMON 		= ${OBJDIR}/physics.o \
 					  ${OBJDIR}/dll.o
 OBJS				= ${OBJDIR}/main_sequential.o \
 					  ${OBJDIR}/main_parallel.o \
+					  ${OBJDIR}/foomain.o \
 					  ${OBJS_COMMON}
 ###################################################
 
 all: ${OBJDIR} ${BINDIR} \
 	${OBJS} \
 	${BINDIR}/${TARGET_SEQ} \
-	${BINDIR}/${TARGET_PARALLEL}
+	${BINDIR}/${TARGET_PARALLEL} \
+	${BINDIR}/foomain
 
 ${OBJDIR}:
 	test -d ${OBJDIR} || mkdir ${OBJDIR}
@@ -37,6 +39,9 @@ ${BINDIR}/${TARGET_SEQ}: ${OBJDIR}/main_sequential.o ${OBJS_COMMON}
 	${CC} -o $@ $^ ${LDFLAGS} 
 
 ${BINDIR}/${TARGET_PARALLEL}: ${OBJDIR}/main_parallel.o ${OBJS_COMMON} 
+	${CC} -o $@ $^ ${LDFLAGS} 
+
+${BINDIR}/foomain: ${OBJDIR}/foomain.o ${OBJS_COMMON} 
 	${CC} -o $@ $^ ${LDFLAGS} 
 
 clean:

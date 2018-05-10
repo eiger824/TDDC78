@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #include <stdbool.h>
 #include <getopt.h>
@@ -53,10 +54,6 @@ int main(int argc, char** argv)
     int total_number_of_particles = -1;
     int dims[2];
     int my_coords[2];
-    int horizontal_nbr[2];
-    int vertical_nbr[2];
-    int horizontal_nbr_id;
-    int vertical_nbr_id;
     float time_step = DEFAULT_TSTEP;
     int mutual_excl_flag = 0;
 
@@ -177,14 +174,6 @@ int main(int argc, char** argv)
 
     MPI_Cart_rank( grid_comm, my_coords, &my_id );
 
-    /* Determine my neighbors */
-    horizontal_nbr[0] = my_coords[0] + 1;
-    horizontal_nbr[1] = my_coords[1];
-    vertical_nbr[0] = my_coords[0];
-    vertical_nbr[1] = my_coords[1] + 1;
-
-    MPI_Cart_rank ( grid_comm, horizontal_nbr, & horizontal_nbr_id );
-    MPI_Cart_rank ( grid_comm, vertical_nbr, & vertical_nbr_id );
     /**********************************************************************/
 
     if (my_id == ROOT)
@@ -192,10 +181,7 @@ int main(int argc, char** argv)
         log_info("Total amount of existent particles in the box:\t%d", total_number_of_particles);
         log_info("(Grid dimensions are: %d x %d)", dims[0], dims[1]);
     }
-    log_info("[ID=%d] (x=%d, y=%d). My horizontal neighbor [ID=%d] (x=%d ,y=%d). My vertical neighbor [ID=%d] (x=%d, y=%d)."
-            , my_id, my_coords[0], my_coords[1]
-            , horizontal_nbr_id, horizontal_nbr[0] , horizontal_nbr[1]
-            , vertical_nbr_id, vertical_nbr[0] , vertical_nbr[1]);
+	log_info("[ID=%d] (x=%d, y=%d).", my_id, my_coords[0], my_coords[1]);
 
     /* Declare our MPI datatypes */
     DECLARE_MPI_COORDINATE_DATATYPE(cord_t, cord_mpi_t);
@@ -248,8 +234,6 @@ int main(int argc, char** argv)
         dll_append(my_list, particle);
     }
 
-    uint p, pp;
-
     /* Start simulation */
     double starttime, endtime;
     starttime = MPI_Wtime();
@@ -269,12 +253,15 @@ int main(int argc, char** argv)
     int i,j;
     bool collided;
     int neighbor_coordinates[2];
-    int neighbor_id;
     dll_t * my_send_list = dll_init();
     // Allocate a receive buffer big enough to hold at most extra nr_particles
     pcord_t * receive_from_others = (pcord_t * ) malloc (sizeof *receive_from_others * nr_particles);
+	// Allocate an array containing how many particles for each node to send (init with zeros)
+	int * nr_particles_for_every_node = (int *) calloc (np, sizeof *nr_particles_for_every_node);
+	// Same array on the receive nodes
+	int * nr_particles_for_every_node_recv = (int *) calloc (np, sizeof *nr_particles_for_every_node_recv);
 
-    /* Main loop */
+	/* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
         log_debug("At time stamp %d", time_stamp);
@@ -321,14 +308,71 @@ int main(int argc, char** argv)
                 dll_extract(my_list, current_node, particle_to_send);
                 // Append it to my send list
                 dll_append(my_send_list, particle_to_send);
+				// Determine what is the neigbor rank
+				int nbr_rank;
+				MPI_Cart_rank(grid_comm, neighbor_coordinates, &nbr_rank);
+				// Add up the particles to send for that neighbor
+				nr_particles_for_every_node[nbr_rank]++;
             }
         }
         // At this point, some particles may have disappeared from "my_list" and
         // others may have appeared in "my_send_list". Now we want to handle the
         // particles in "my_send_list" so they can be sent to their respective
         // destinations
-        
 
+		int ** matrix = (int ** ) malloc (sizeof *matrix * np);
+		for (unsigned i = 0; i < np; ++i)
+			*(matrix + i) = (int * ) calloc (np, sizeof(int));
+
+		// At this point, only I know the count of the elements to send
+		memcpy(*(matrix + my_id), nr_particles_for_every_node, sizeof(int) * np);
+
+		// Send my row to everyone
+		MPI_Bcast(*(matrix + my_id), np, MPI_INT, my_id, MPI_COMM_WORLD);
+
+		// Let's see if matrix works
+		for (unsigned i = 0; i < np; ++i)
+		{
+			for (unsigned j = 0; j < np; ++i)
+			{
+				printf("%d\t", matrix[i][j]);
+			}
+			printf("\n");
+		}
+
+
+
+
+
+
+
+
+
+
+
+		//TODO: Replace my_send_list with my_send_array
+/*
+		unsigned sender, receiver;
+		for (sender = 0; sender < np; ++sender) // sender -> sending process
+		{
+			for (receiver = 0; receiver < np; ++receiver) // receiver -> receiving process
+			{
+				if (sender != receiver) // Dont send to the same node
+				{
+					if (my_id == sender)
+					{
+// 						MPI_Send(my_send_array, nr_elems_to_send, pcord_mpi_t, receiver, 1234, MPI_COMM_WORLD);
+					}
+					if (my_id == receiver)
+					{
+						MPI_Status status;
+// 						MPI_Recv(my_recv_array, nr_elems_to_send, pcord_mpi_t, sender, 1234, MPI_COMM_WORLD, &status);
+					}
+				}
+			}
+		}
+
+*/
     }
 
     MPI_Allreduce(&pressure, &global_pressure, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
@@ -338,12 +382,13 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD);
 
     /* Gather all particles if print (-p) option enabled, not mandatory */
-# if 0
+#if 0
+	pcord_t * indiv = dll_to_array(list);
     pcord_t * all; 
     if (show_box)
     {
         all = (pcord_t * ) malloc(sizeof(pcord_t) * total_number_of_particles);
-        MPI_Gather(particles, nr_particles, pcord_mpi_t,
+		MPI_Gatherv(indiv , list->count, pcord_mpi_t,
                 all, nr_particles, pcord_mpi_t,
                 ROOT, MPI_COMM_WORLD);
     }

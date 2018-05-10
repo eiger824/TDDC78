@@ -217,3 +217,28 @@ dll_node_t * dll_at(dll_t * list, int index)
     return NULL;
 }
 
+pcord_t * dll_to_array(dll_t * list)
+{
+    pcord_t * outarray = (pcord_t * ) malloc (sizeof *outarray * list->count);
+    int pos = 0;
+    dll_node_t * node = list->first;
+    while (node != list->last->next)
+    {
+        *(outarray + pos++) = *node->p;
+        node = node->next;
+    }
+    return outarray;
+}
+
+dll_t * dll_from_array(pcord_t * array, int count)
+{
+	dll_t * outlist = dll_init();
+	for (int i = 0; i < count; ++i)
+	{
+		pcord_t * p = (pcord_t * ) malloc(sizeof *p);
+		*p = *(array + i);
+		dll_append(outlist, p);
+	}
+	return outlist;
+}
+

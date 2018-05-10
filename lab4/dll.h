@@ -48,4 +48,8 @@ dll_t * dll_copy_list(dll_t * rhs);
 
 int dll_is_empty(dll_t * list);
 
+pcord_t * dll_to_array(dll_t * list);
+dll_t * dll_from_array(pcord_t * array, int count);
+
 #endif /* __DOUBLYLINKEDLIST_H */
+

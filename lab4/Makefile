@@ -33,6 +33,12 @@ ${BINDIR}:
 ${OBJDIR}/%.o: %.c %.h definitions.h
 	${CC} ${CFLAGS} -o $@ $<
 
+${OBJDIR}/main_parallel.o : main_parallel.c
+	${CC} ${CFLAGS} -o $@ $<
+
+${OBJDIR}/main_sequential.o : main_sequential.c
+	${CC} ${CFLAGS} -o $@ $<
+
 ${BINDIR}/${TARGET_SEQ}: ${OBJDIR}/main_sequential.o ${OBJS_COMMON} 
 	${CC} -o $@ $^ ${LDFLAGS} 
 

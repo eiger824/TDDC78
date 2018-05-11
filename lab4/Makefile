@@ -30,7 +30,7 @@ ${OBJDIR}:
 ${BINDIR}:
 	test -d ${BINDIR} || mkdir ${BINDIR}
 
-${OBJDIR}/%.o: %.c definitions.h
+${OBJDIR}/%.o: %.c %.h definitions.h
 	${CC} ${CFLAGS} -o $@ $<
 
 ${BINDIR}/${TARGET_SEQ}: ${OBJDIR}/main_sequential.o ${OBJS_COMMON} 

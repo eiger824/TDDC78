@@ -97,3 +97,21 @@ void print_box(const uint horiz_size, const uint vert_size, pcord_t * particles,
         free(*(box + i));
     free(box);
 }
+
+void set_bogus_values(pcord_t ** matrix, int rows, int cols)
+{
+    // Paranoid check...
+    if (!matrix)
+        return;
+
+    pcord_t  * current;
+    for (int i = 0; i < rows; ++i)
+    {
+        for (int j = 0; j < cols; ++j)
+        {
+            current = *(matrix + i) + j;
+            current->x = current->y = -1.0f;
+        }
+    }
+}
+

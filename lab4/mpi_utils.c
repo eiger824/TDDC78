@@ -49,11 +49,11 @@ cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * 
 {
     cord_t * out = (cord_t * ) malloc (sizeof(cord_t));
 
-    out->x0 = grid[0] * hsize / dims[1];
-    out->y0 = grid[1] * vsize / dims[0];
+    out->x0 = grid[1] * hsize / dims[1];
+    out->y0 = grid[0] * vsize / dims[0];
 
-    out->x1 = (grid[0] + 1) * hsize / dims[1];;
-    out->y1 = (grid[1] + 1) * vsize / dims[0];
+    out->x1 = (grid[1] + 1) * hsize / dims[1];
+    out->y1 = (grid[0] + 1) * vsize / dims[0];
 
     return out;
 }

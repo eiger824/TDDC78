@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 {
     unsigned int time_stamp = 0, time_max;
     float pressure = 0;
-
+    int nr_particles = 8000;
 
     // parse arguments
     if (argc != 2)
@@ -49,13 +49,13 @@ int main(int argc, char** argv)
 
 
     // 2. allocate particle bufer and initialize the particles
-    pcord_t * particles = (pcord_t*) malloc(INIT_NO_PARTICLES * sizeof(pcord_t) );
-    bool * collisions = (bool *) malloc (INIT_NO_PARTICLES * sizeof(bool) );
+    pcord_t * particles = (pcord_t*) malloc(nr_particles * sizeof(pcord_t) );
+    bool * collisions = (bool *) malloc (nr_particles * sizeof(bool) );
 
     srand( time(NULL) + 1234 );
 
     float r, a;
-    for (int i = 0; i < INIT_NO_PARTICLES; i++)
+    for (int i = 0; i < nr_particles; i++)
     {
         // initialize random position
         particles[i].x = wall.x0 + rand1()*BOX_HORIZ_SIZE;
@@ -74,14 +74,14 @@ int main(int argc, char** argv)
     /* Main loop */
     for (time_stamp = 0; time_stamp < time_max; time_stamp++) // for each time stamp
     {
-        init_collisions(collisions, INIT_NO_PARTICLES);
+        init_collisions(collisions, nr_particles);
 
-        for (p = 0; p < INIT_NO_PARTICLES; p++) // for all particles
+        for (p = 0; p < nr_particles; p++) // for all particles
         {
             if (collisions[p]) continue;
 
             /* check for collisions */
-            for (pp = p + 1; pp < INIT_NO_PARTICLES; pp++)
+            for (pp = p + 1; pp < nr_particles; pp++)
             {
                 if (collisions[pp]) continue;
 
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
         }
 
         // move particles that has not collided with another
-        for (p = 0; p < INIT_NO_PARTICLES; p++)
+        for (p = 0; p < nr_particles; p++)
         {
             if (!collisions[p])
             {

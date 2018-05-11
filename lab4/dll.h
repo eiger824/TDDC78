@@ -5,7 +5,7 @@
 
 typedef struct dll_node_type
 {
-    pcord_t * p;
+    pcord_t p;
     struct dll_node_type *next;
     struct dll_node_type *prev;
 
@@ -23,14 +23,14 @@ typedef struct dll_type
 dll_t *dll_init(void);
 void dll_destroy(dll_t * list);
 
-void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t * p);
-void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t * p);
+void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t  p);
+void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t  p);
 
-void dll_insert_beginning(dll_t * list, pcord_t * p); 
-void dll_prepend(dll_t * list, pcord_t * p);
+void dll_insert_beginning(dll_t * list, pcord_t  p); 
+void dll_prepend(dll_t * list, pcord_t  p);
 
-void dll_insert_end(dll_t * list, pcord_t * p); 
-void dll_append(dll_t * list, pcord_t * p);
+void dll_insert_end(dll_t * list, pcord_t  p); 
+void dll_append(dll_t * list, pcord_t  p);
 
 dll_node_t * dll_at(dll_t * list, int index);
 

@@ -36,60 +36,53 @@ program laplsolv
     ! Determine how many stuffs should be implemented by a thread
     ratio = n/nr_threads
 
-    ! Determine every thread's start/stop position
-    do i=0,nr_threads-1
-       if (i .NE. nr_threads-1) then
-          start_pos(i) = (i*ratio)+1
-          stop_pos(i) = (i+1)*ratio
-       else
-          start_pos(i) = (i*ratio)+1
-          stop_pos(i) = n
-       end if
-    end do
+      ! Determine every thread's start/stop position
+     do i=0,nr_threads-1
+        start_pos(i) = (i*ratio)+1
+        stop_pos(i) = (i+1)*ratio
+     end do
 
-    ! Solve the linear system of equations using the Jacobi method
-    t0 = omp_get_wtime()
+  ! Solve the linear system of equations using the Jacobi method
+  t0 = omp_get_wtime()
   
-    do k=1,maxiter
+  do k=1,maxiter
      
-       !tmp1=T(1:n,0)
-       error=0.0D0
+     !tmp1=T(1:n,0)
+     error=0.0D0
+
+     ! We need to assign various start_pos/stop_pos's previous one array for each thread, their relationship is tmp1=T(1:n,j-1) when tmp2=T(1:n,j)
+     ! tmp3 is an array that consist original stop_pos's value
+     do i=0,nr_threads-1
+        tmp1(0:n-1, i) = T(1:n, start_pos(i)-1)
+        tmp3(0:n-1, i) = T(1:n, stop_pos(i)+1)
+	 end do
+
+     !$omp parallel private(j,tmp2,my_id) shared(T,tmp1, tmp3)
+     my_id = OMP_GET_THREAD_NUM()
+
+     do j=start_pos(my_id),(stop_pos(my_id)-1)
+        tmp2=T(1:n,j)
+        T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+T(1:n,j+1)+tmp1(0:n-1,my_id))/4.0D0
+        error=max(error,maxval(abs(tmp2-T(1:n,j))))
+        tmp1(0:n-1,my_id)=tmp2
+     end do
      
+     tmp2=T(1:n,stop_pos(my_id))
+     T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+tmp3(0:n-1,my_id)+tmp1(0:n-1,my_id))/4.0D0
+     error=max(error,maxval(abs(tmp2-T(1:n,j))))
+     tmp1(0:n-1,my_id)=tmp2
+     
+     !$omp end parallel
 
-       ! We need to assign various start_pos/stop_pos's previous one array for each thread, their relationship is tmp1=T(1:n,j-1) when tmp2=T(1:n,j)
-       ! tmp3 is an array that consist original stop_pos's value
-       do i=0,nr_threads-1
-          if (i .NE. nr_threads-1) then
-             tmp1(0:n-1, i) = T(1:n, start_pos(i)-1)
-             tmp3(0:n-1, i) = T(1:n, stop_pos(i)+1)
-          else
-             tmp1(0:n-1, i) = T(1:n,start_pos(i)-1)
-             tmp3(0:n-1, i) = T(1:n,stop_pos(i)+1)
-          end if
-       end do
-
-       !$omp parallel private(j,tmp2,my_id) shared(T,tmp1, tmp3)
-       my_id = OMP_GET_THREAD_NUM()
-
-       do j=start_pos(my_id),(stop_pos(my_id)-1)
-          tmp2=T(1:n,j)
-          T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+T(1:n,j+1)+tmp1(0:n-1,my_id))/4.0D0
-          error=max(error,maxval(abs(tmp2-T(1:n,j))))
-          tmp1(0:n-1,my_id)=tmp2
-       end do
-       tmp2=T(1:n,stop_pos(my_id))
-       T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+tmp3(0:n-1,my_id)+tmp1(0:n-1,my_id))/4.0D0
-       error=max(error,maxval(abs(tmp2-T(1:n,j))))
-       tmp1(0:n-1,my_id)=tmp2
-       !$omp end parallel
-       
-       if (error<tol) then
-          exit
-       end if
+     if (error<tol) then
+        exit
+     end if
+     
   end do
   
   t1 = omp_get_wtime()
 
+  print *, 'The number of threads is',nr_threads
   write(unit=*,fmt=*) 'Time:',t1-t0,'Number of Iterations:',k
   write(unit=*,fmt=*) 'Temperature of element T(1,1)  =',T(1,1)
 

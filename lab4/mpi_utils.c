@@ -63,13 +63,12 @@ bool is_particle_inside_grid_boundary(pcord_t * p1, cord_t * my_limits)
     return p1->x >= my_limits->x0 && p1->x <= my_limits->x1 && p1->y >= my_limits->y0 && p1->y <= my_limits->y1; 
 }
 
-bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits,
-        const uint hsize, const uint vsize, const int * dims, int * nbr_coord )
+bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits, nloc_t * dir)
 {
     if (!is_particle_inside_grid_boundary(p1, my_limits))
     {
         // Update the neighbor where it actually is
-        get_grid_region_of_particle(p1, hsize, vsize, dims, nbr_coord); 
+        get_particle_dir(p1, my_limits, dir);
         return true;
     }
     return false;
@@ -82,23 +81,13 @@ void print_limits(uint id, cord_t * my_limits)
 }
 
 // Given a coordinate p1, determine its cartesian coordinates in the MPI 2D topology
-void get_grid_region_of_particle(pcord_t * p, const uint hsize, const uint ysize, const int * dims, int * my_grid )
+void get_particle_dir(pcord_t * p, cord_t * my_limits, nloc_t * dir)
 {
     int x = p->x;
     int y = p->y;
 
-    int rows = dims[0];
-    int cols = dims[1];
-
-    int xstep = hsize / cols;
-    int ystep = ysize / rows;
-
-    uint i,j;
-    for (i = xstep; i <= hsize; i += xstep)
-        if (i >= x) break;
-    my_grid[1] = i / xstep - 1;
-
-    for (j = ystep; j <= ysize; j += ystep)
-        if (j >= y) break;
-    my_grid[0] = j / ystep - 1;
+    if (x < my_limits->x0) *dir = LEFT;
+    else if (x > my_limits->x1) *dir = RIGHT;
+    else if (y < my_limits->y0) *dir = TOP;
+    else if (y > my_limits->y1) *dir = BOTTOM;
 }

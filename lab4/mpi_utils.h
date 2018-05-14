@@ -138,11 +138,11 @@ cord_t * get_my_grid_boundaries(const uint hsize, const uint vsize, const int * 
 
 
 bool is_particle_inside_grid_boundary(pcord_t * p1, cord_t * my_limits);
-bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits,
-        const uint hsize, const uint vsize, const int * dims, int * nbr_coord );
+bool is_particle_outside_grid_boundary(pcord_t * p1, cord_t * my_limits, nloc_t * dir);
 
 void print_limits(uint id, cord_t * limits);
 
-void get_grid_region_of_particle(pcord_t * p, const uint hsize, const uint ysize, const int * dims, int * my_grid );
+void get_particle_dir(pcord_t * p, cord_t * my_limits, nloc_t * dir);
+
 #endif  /* MPI_UTILS_H_ */
 

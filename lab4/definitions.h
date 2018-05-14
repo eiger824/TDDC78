@@ -34,5 +34,13 @@ typedef struct particle
 
 typedef unsigned int uint ;
 
+typedef enum neighbor_location
+{
+    LEFT = 0,
+    TOP,
+    RIGHT,
+    BOTTOM
+} nloc_t;
+
 #endif
 

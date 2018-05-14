@@ -1,7 +1,7 @@
 #################### Variables ####################
 CC 					= mpicc
 CFLAGS 				= -c -Wall -Wextra -std=c99 -g
-LDFLAGS 			= -lm
+LDFLAGS 			= -lm -g
 
 TARGET_SEQ			= sequential
 TARGET_PARALLEL 	= parallel

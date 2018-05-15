@@ -144,6 +144,16 @@ void dll_print_node(dll_node_t * node)
             ptr.x, ptr.y, ptr.vx, ptr.vy);
 }
 
+void dll_append_list(dll_t * dst, dll_t * src)
+{
+    dll_node_t * current = src->head->next;
+    while (current != src->tail)
+    {
+        dll_append(dst, current->p);
+        current = current->next;
+    }
+}
+
 dll_t * dll_copy_list(dll_t * rhs)
 {
     dll_t * list = dll_init();

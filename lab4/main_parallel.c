@@ -19,7 +19,6 @@
 /*                     L    U   R   B  */
 static int my_neighbors[4] = {0,   0,  0,  0};
 
-//Feel free to change this program to facilitate parallelization.
 void help(const char * program)
 {
     printf("Usage: %s [h|n|x|y] <sim-time>\n", program);
@@ -248,12 +247,17 @@ int main(int argc, char** argv)
 
     /* The send lists: particles "abandoning" my region, one for each direction */
     dll_t ** my_send_lists = (dll_t ** )  malloc (sizeof *my_send_lists * 4);
+    /* The receive lists: particles coming to my region, one from each direction */
+    dll_t ** my_recv_lists = (dll_t ** ) malloc (sizeof *my_recv_lists * 4);
     for (int nbr = LEFT; nbr <= BOTTOM; ++nbr)
+    {
         my_send_lists[nbr] = dll_init();
+        my_recv_lists[nbr] = dll_init();
+    }
 
-    /* The receive arrays: particles "coming" to my region, one from each direction */
-    pcord_t ** my_received_particles = (pcord_t ** ) malloc (sizeof *my_received_particles * 4);
     // Don't allocate individual sizes just yet, do it dynamically
+//     pcord_t my_recv_particles[nr_particles];
+    pcord_t * my_recv_particles;
 
     /* The particles will now be generated in each processor's grid region */
     float r, a;
@@ -342,7 +346,9 @@ int main(int argc, char** argv)
 
                 /* check for wall interaction and add the momentum */
                 pressure += wall_collide(&current_particle, wall);
-
+                
+                /* Copy back the edited particle to the actual list */
+                current_node->p = current_particle;
             }
             current_node = current_node->next;
         }
@@ -359,10 +365,8 @@ int main(int argc, char** argv)
                         &direction))
             {
                 // Extract it from my original list
-                printf("Size:\t%d ------->", my_list->count);
                 current_node = dll_extract(my_list, current_node, &particle_to_send);
-                printf("%d\n", my_list->count);
-
+                count++;
                 /* Only send away this particle if this is a valid neighbor */
                 if (direction != -1)
                 {
@@ -376,6 +380,7 @@ int main(int argc, char** argv)
                 current_node = current_node->next;
             }
         }
+        printf("[ID=%d] At this time step, %ld particles will abandon my region\n", my_id, count);
         // At this point, some particles may have disappeared from "my_list" and
         // others may have appeared in the correspondent list of "my_send_lists".
         // Now we want to handle the particles in "my_send_lists" so they can be
@@ -402,14 +407,30 @@ int main(int argc, char** argv)
             // 5. Depending on the obtained size, allocate a receive buffer
             if (recv_sizes[nbr] > 0)
             {
-                my_received_particles[nbr] = (pcord_t * ) malloc (sizeof (pcord_t) * recv_sizes[nbr]);
+                my_recv_particles = (pcord_t * )  malloc (sizeof *my_recv_particles * recv_sizes[nbr]);
             }
             else
             {
-                my_received_particles[nbr] = NULL;
+                my_recv_particles = NULL;
             }
             // 6. Receive the actual message that is waiting for me
-            MPI_Recv( my_received_particles[nbr] , recv_sizes[nbr], pcord_mpi_t, from, nbr, grid_comm, &status);
+            log_if_0("my_recv_particles(%p), recv_sizes[%d]=%d\n", (void*)my_recv_particles, recv_sizes[nbr]);
+            MPI_Recv( my_recv_particles, recv_sizes[nbr], pcord_mpi_t, from, nbr, grid_comm, &status);
+            // Transform this array to a list and append it to the correspondent list
+            dll_t * tmp = dll_from_array(my_recv_particles, recv_sizes[nbr]);
+            log_if_0("tmp: %p\n", (void*)tmp);
+            // Free the array if there was something allocated
+            if (recv_sizes[nbr] > 0)
+            {
+                log_if_0("freeing (%p)\n", (void*)my_recv_particles);
+                free(my_recv_particles);
+            }
+            // Copy the tmp list to the correspondent list in the receive lists
+            log_if_0("Appending tmp(%p) to (%p)\n", tmp, my_recv_lists[nbr]);
+            dll_append_list(my_recv_lists[nbr], tmp);
+            // Destroy the tmp list
+            log_if_0("Destroying (%p)\n", (void*)tmp);
+            dll_destroy(tmp);
         }
         b_time = MPI_Wtime();
         cs_time += (b_time - a_time);
@@ -419,16 +440,19 @@ int main(int argc, char** argv)
            well */
         for (int nbr = LEFT; nbr <= BOTTOM; ++nbr)
         {
-            for (int pos = 0; pos < recv_sizes[nbr]; ++pos) 
+            dll_t * current_list = my_recv_lists[nbr];
+            dll_node_t * current_node = current_list->head->next;
+            while (current_node != current_list->tail)
             {
-                pcord_t new = my_received_particles[nbr][pos];
-                log_debug("[ID:%d] Appending new!", my_id);
+                pcord_t new = current_node->p;
+                printf("[ID:%d] Appending new!\n", my_id);
                 dll_append(my_list, new);
+                // Advance to the next node
+                current_node = current_node->next;
             }
-            if (recv_sizes[nbr] > 0)
-                free(my_received_particles[nbr]);
-
+            /* Free both this send list and the current recv list */
             dll_empty( my_send_lists[nbr] );
+            dll_empty( my_recv_lists[nbr] );
         }
         MPI_Barrier(grid_comm);
     }
@@ -452,14 +476,12 @@ int main(int argc, char** argv)
     dll_destroy(my_list);
 
     for (uint i = LEFT; i <= BOTTOM; ++i)
+    {
         dll_destroy(my_send_lists[i]);
+        dll_destroy(my_recv_lists[i]);
+    }
     free(my_send_lists);
-
-/*
-    for (uint i = LEFT; i <= BOTTOM; ++i)
-        free(my_received_particles[i]);
-    free(my_received_particles);
-*/
+    free(my_recv_lists);
 
     /* Finalyze MPI running environment */
     log_debug("[ID=%d] Done. Au revoir!", my_id);

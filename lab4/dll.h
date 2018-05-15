@@ -45,6 +45,7 @@ void dll_print_node(dll_node_t * node);
 
 void dll_empty(dll_t * list);
 dll_t * dll_copy_list(dll_t * rhs);
+void dll_append_list(dll_t * dst, dll_t * src);
 
 int dll_is_empty(dll_t * list);
 

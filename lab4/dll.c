@@ -240,7 +240,10 @@ dll_node_t * dll_at(dll_t * list, int index)
 
 pcord_t * dll_to_array(dll_t * list)
 {
-    pcord_t * outarray = (pcord_t * ) malloc (sizeof *outarray * list->count);
+    pcord_t * outarray;
+    if (list->count == 0)
+       return NULL;
+    outarray = (pcord_t * ) malloc (sizeof *outarray * list->count);
     int pos = 0;
     dll_node_t * node = list->head;
     while (node != list->tail->next)

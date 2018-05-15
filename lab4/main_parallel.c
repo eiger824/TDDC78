@@ -29,7 +29,6 @@ void help(const char * program)
             INIT_NO_PARTICLES, MAX_NO_PARTICLES);
     printf("-N nr\tSet the total number of particles in the box\n");
     printf("\t(note: this number should not exceed %d * <nr-available-cores>)\n", MAX_NO_PARTICLES);
-    printf("-p\tPrint a scaled representation of the final box\n");
     printf("-t step\tTime step to move the particles when they don't collide\n\t(default: %.2f)\n", DEFAULT_TSTEP);
     printf("-x size\tSet box horizontal size (default: %.2f)\n",
             BOX_HORIZ_SIZE);
@@ -85,7 +84,6 @@ int main(int argc, char** argv)
     float global_pressure = 0;
     int c;
     int verbose = -1;
-    int show_box = 0;
     uint nr_particles = 1e4;
     int horiz_size = BOX_HORIZ_SIZE;
     int vert_size = BOX_VERT_SIZE;
@@ -98,7 +96,7 @@ int main(int argc, char** argv)
     int mutual_excl_flag = 0;
 
     // Parse arguments
-    while ((c = getopt(argc, argv, "hn:N:pt:x:y:v")) != -1)
+    while ((c = getopt(argc, argv, "hn:N:t:x:y:v")) != -1)
     {
         switch (c)
         {
@@ -132,9 +130,6 @@ int main(int argc, char** argv)
                 }
                 total_number_of_particles = atoi(optarg);
                 mutual_excl_flag = 1;
-                break;
-            case 'p':
-                show_box = 1;
                 break;
             case 't':
                 time_step = atoi(optarg);
@@ -281,8 +276,8 @@ int main(int argc, char** argv)
     for (uint i = 0; i < nr_particles; i++)
     {
         // initialize random position in my assigned grid
-        particle.x = xstart + rand1() * xend;
-        particle.y = ystart + rand1() * yend;
+        particle.x = xstart + rand() % (xend - xstart + 1);
+        particle.y = ystart + rand() % (yend - ystart + 1);
 
         // initialize random velocity
         r = rand1() * MAX_INITIAL_VELOCITY;
@@ -365,7 +360,9 @@ int main(int argc, char** argv)
                         &direction))
             {
                 // Extract it from my original list
+                printf("Size:\t%d ------->", my_list->count);
                 current_node = dll_extract(my_list, current_node, &particle_to_send);
+                printf("%d\n", my_list->count);
 
                 /* Only send away this particle if this is a valid neighbor */
                 if (direction != -1)
@@ -388,6 +385,7 @@ int main(int argc, char** argv)
         a_time = MPI_Wtime();
         /* Sending the particles in all directions */
         int recv_sizes[4] = {0};
+        // nbr: who am I sending to ??
         for (int nbr = LEFT; nbr <= BOTTOM; ++nbr)
         {
             int opposite = (nbr + 2) % 4;
@@ -395,17 +393,9 @@ int main(int argc, char** argv)
             int from = my_neighbors[opposite];
             // 1. Convert the current send list to an appropriate C-style array
             dll_t *   tmp_send_list = my_send_lists[nbr];
-            if (!dll_is_empty(tmp_send_list))
-            {
-                pcord_t * tmp_send_array = dll_to_array( tmp_send_list );
-                // 2. Send it to the opposite direction (L->R, R->L, T->B, B->T)
-                MPI_Send(tmp_send_array, tmp_send_list->count, pcord_mpi_t, src, nbr, grid_comm);
-            }
-            else
-            {
-                pcord_t bogus;
-                MPI_Send(&bogus, 0, pcord_mpi_t, src, nbr, grid_comm);
-            }
+            pcord_t * tmp_send_array = dll_to_array( tmp_send_list );
+            // 2. Send it to the opposite direction (L->R, R->L, T->B, B->T)
+            MPI_Send(tmp_send_array, tmp_send_list->count, pcord_mpi_t, src, nbr, grid_comm);
             // 3. Probe in order to check whether a message is waiting for me 
             MPI_Probe(from, nbr, grid_comm, &status);
             // 4. Get the number of bytes on the receiver buffer (could be 0 ..)
@@ -414,14 +404,13 @@ int main(int argc, char** argv)
             if (recv_sizes[nbr] > 0)
             {
                 my_received_particles[nbr] = (pcord_t * ) malloc (sizeof (pcord_t) * recv_sizes[nbr]);
-                // 6. Receive the actual message that is waiting for me
-                MPI_Recv( my_received_particles[nbr] , recv_sizes[nbr], pcord_mpi_t, from, nbr, grid_comm, &status);
             }
             else
             {
-                pcord_t bogus;
-                MPI_Recv( &bogus , 0, pcord_mpi_t, from, nbr, grid_comm, &status);
+                my_received_particles[nbr] = NULL;
             }
+            // 6. Receive the actual message that is waiting for me
+            MPI_Recv( my_received_particles[nbr] , recv_sizes[nbr], pcord_mpi_t, from, nbr, grid_comm, &status);
         }
         b_time = MPI_Wtime();
         cs_time += (b_time - a_time);
@@ -437,7 +426,9 @@ int main(int argc, char** argv)
                 log_debug("[ID:%d] Appending new!", my_id);
                 dll_append(my_list, new);
             }
-//             free(my_received_particles[nbr]);
+            if (recv_sizes[nbr] > 0)
+                free(my_received_particles[nbr]);
+
             dll_empty( my_send_lists[nbr] );
         }
         MPI_Barrier(grid_comm);
@@ -461,9 +452,9 @@ int main(int argc, char** argv)
     /* Free stuff */
     dll_destroy(my_list);
 
-//     for (uint i = LEFT; i <= BOTTOM; ++i)
-//         dll_destroy(my_send_lists[i]);
-//     free(my_send_lists);
+    for (uint i = LEFT; i <= BOTTOM; ++i)
+        dll_destroy(my_send_lists[i]);
+    free(my_send_lists);
 
 /*
     for (uint i = LEFT; i <= BOTTOM; ++i)

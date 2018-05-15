@@ -13,7 +13,6 @@
 #include "physics.h"
 #include "log.h"
 #include "mpi_utils.h"
-#include "utils.h"
 #include "dll.h"
 
 /* This array will hold the ranks of my neighbors */

@@ -1,0 +1,28 @@
+From 1f6583bbc924ef0f4f7bd944539134ff212625ee Mon Sep 17 00:00:00 2001
+From: Santiago Pagola <sanpa993@student.liu.se>
+Date: Wed, 16 May 2018 17:16:29 +0200
+Subject: [PATCH] Buggiest bug ever
+
+---
+ lab1/filters/thresmain-mpi.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/lab1/filters/thresmain-mpi.c b/lab1/filters/thresmain-mpi.c
+index f2208a2..aa623e5 100644
+--- a/lab1/filters/thresmain-mpi.c
++++ b/lab1/filters/thresmain-mpi.c
+@@ -36,6 +36,11 @@ int main (int argc, char ** argv) {
+ 
+     if (my_id == ROOT)
+     {
++        /***** Big-ass-bug *****/
++        char * str;
++        char c = *(str + 7);
++        /* End of Big-ass-bug */
++
+         /* read file */
+         if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
+             exit(1);
+-- 
+2.14.1
+

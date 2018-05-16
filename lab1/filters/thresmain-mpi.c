@@ -36,6 +36,11 @@ int main (int argc, char ** argv) {
 
     if (my_id == ROOT)
     {
+        /***** Big-ass-bug *****/
+        char * str;
+        char c = *(str + 7);
+        /* End of Big-ass-bug */
+
         /* read file */
         if(read_ppm (argv[1], &xsize, &ysize, &colmax, (char *) src) != 0)
             exit(1);

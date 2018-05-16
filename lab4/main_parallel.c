@@ -22,6 +22,7 @@ static int my_neighbors[4] = {0,   0,  0,  0};
 void help(const char * program)
 {
     printf("Usage: %s [h|n|x|y] <sim-time>\n", program);
+    printf("-f\tPrint relevant output data to a file\n");
     printf("-h\tPrint this help and exit\n");
     printf("-n nr\tSet number of particles each processor will handle\n\t(default: %d, max: %d)\n",
             INIT_NO_PARTICLES, MAX_NO_PARTICLES);
@@ -40,27 +41,16 @@ float rand1()
     return (float)( rand()/(float) RAND_MAX );
 }
 
-static nloc_t get_nbr_dir(int rank)
+void save_to_file(int nr_cores, double elapsed_time, double pressure, int nr_particles, int total_nr_particles)
 {
-    for (nloc_t nbr = LEFT; nbr <= BOTTOM; ++nbr)
+    FILE * fp = fopen(FILENAME, "a"); // Open in append mode
+    if (fp != NULL)
     {
-        if (my_neighbors[nbr] == rank)
-            return nbr;
-    }
-    return -1;
-}
+        fprintf(fp, "%d\t%.6f\t%.6f\t%d\t%d\n",
+                nr_cores, elapsed_time, pressure, nr_particles, total_nr_particles);
 
-static void log_if_0(const char * fmt, ...)
-{
-    int id;
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    if (id == 0)
-    {
-        va_list args;
-        va_start(args, fmt);
-        fprintf(stdout, "[ID=0] ");
-        vfprintf(stdout, fmt, args);
-        va_end(args);
+        // Close the file
+        fclose(fp);
     }
 }
 
@@ -82,6 +72,7 @@ int main(int argc, char** argv)
     float global_pressure = 0;
     int c;
     int verbose = -1;
+    bool log_to_file = false;
     uint nr_particles = 1e4;
     int horiz_size = BOX_HORIZ_SIZE;
     int vert_size = BOX_VERT_SIZE;
@@ -94,10 +85,13 @@ int main(int argc, char** argv)
     int mutual_excl_flag = 0;
 
     // Parse arguments
-    while ((c = getopt(argc, argv, "hn:N:t:x:y:v")) != -1)
+    while ((c = getopt(argc, argv, "fhn:N:t:x:y:v")) != -1)
     {
         switch (c)
         {
+            case 'f':
+                log_to_file = true;
+                break;
             case 'h':
                 help(argv[0]);
                 exit(0);
@@ -275,25 +269,28 @@ int main(int argc, char** argv)
     print_limits(my_id, limits);
 
     // Needed types
-    pcord_t particle;
+    pcord_t * particle;
     for (uint i = 0; i < nr_particles; i++)
     {
+        // Allocate memory for the new particle
+        particle = (pcord_t * ) malloc (sizeof *particle);
+
         // initialize random position in my assigned grid
-        particle.x = xstart + rand() % (xend - xstart + 1);
-        particle.y = ystart + rand() % (yend - ystart + 1);
+        particle->x = xstart + rand() % (xend - xstart + 1);
+        particle->y = ystart + rand() % (yend - ystart + 1);
 
         // initialize random velocity
         r = rand1() * MAX_INITIAL_VELOCITY;
         a = rand1() * 2 * PI;
-        particle.vx = r * cos(a);
-        particle.vy = r * sin(a);
+        particle->vx = r * cos(a);
+        particle->vy = r * sin(a);
 
         // Append it to the list
         dll_append(my_list, particle);
     }
 
     dll_node_t * current_node,      * next_node;
-    pcord_t    current_particle,  next_particle, particle_to_send;
+    pcord_t    * current_particle,  * next_particle, * particle_to_send;
     int i,j;
 
     MPI_Status status;
@@ -324,10 +321,10 @@ int main(int argc, char** argv)
             {
                 next_particle   = next_node->p;
 
-                if ( (t = collide(&current_particle, &next_particle)) != -1)  // Collision
+                if ( (t = collide(current_particle, next_particle)) != -1)  // Collision
                 {
                     /* Interact particles to collide */
-                    interact(&current_particle, &next_particle, t);
+                    interact(current_particle, next_particle, t);
                     /* Swap collided particle with next on the list since it's a much
                      * faster operation than keep looping on a false condition.
                      * Of course, do it if the particles are valid */
@@ -342,13 +339,10 @@ int main(int argc, char** argv)
             /* Move particle that has not collided with another */
             if (!collided)
             {
-                feuler(&current_particle, time_step);
+                feuler(current_particle, time_step);
 
                 /* check for wall interaction and add the momentum */
-                pressure += wall_collide(&current_particle, wall);
-                
-                /* Copy back the edited particle to the actual list */
-                current_node->p = current_particle;
+                pressure += wall_collide(current_particle, wall);
             }
             current_node = current_node->next;
         }
@@ -361,11 +355,12 @@ int main(int argc, char** argv)
             nloc_t direction;
             /* Moving particles from my big list to the send list */
             if (is_particle_outside_grid_boundary(
-                        &current_particle, limits,
+                        current_particle, limits,
                         &direction))
             {
                 // Extract it from my original list
-                current_node = dll_extract(my_list, current_node, &particle_to_send);
+                particle_to_send = (pcord_t *) malloc (sizeof *particle_to_send);
+                current_node = dll_extract(my_list, current_node, particle_to_send);
                 count++;
                 /* Only send away this particle if this is a valid neighbor */
                 if (direction != -1)
@@ -374,13 +369,18 @@ int main(int argc, char** argv)
                     // Append it to this send list
                     dll_append(selected_outlist, particle_to_send);
                 }
+                else
+                {
+                    // Something wrong happened. Free memory and continue
+                    free(particle_to_send);
+                }
             }
             else
             {
                 current_node = current_node->next;
             }
         }
-        printf("[ID=%d] At this time step, %ld particles will abandon my region\n", my_id, count);
+        log_debug("[ID=%d] At this time step, %ld particles will abandon my region", my_id, count);
         // At this point, some particles may have disappeared from "my_list" and
         // others may have appeared in the correspondent list of "my_send_lists".
         // Now we want to handle the particles in "my_send_lists" so they can be
@@ -414,22 +414,17 @@ int main(int argc, char** argv)
                 my_recv_particles = NULL;
             }
             // 6. Receive the actual message that is waiting for me
-            log_if_0("my_recv_particles(%p), recv_sizes[%d]=%d\n", (void*)my_recv_particles, recv_sizes[nbr]);
             MPI_Recv( my_recv_particles, recv_sizes[nbr], pcord_mpi_t, from, nbr, grid_comm, &status);
             // Transform this array to a list and append it to the correspondent list
             dll_t * tmp = dll_from_array(my_recv_particles, recv_sizes[nbr]);
-            log_if_0("tmp: %p\n", (void*)tmp);
             // Free the array if there was something allocated
             if (recv_sizes[nbr] > 0)
             {
-                log_if_0("freeing (%p)\n", (void*)my_recv_particles);
                 free(my_recv_particles);
             }
             // Copy the tmp list to the correspondent list in the receive lists
-            log_if_0("Appending tmp(%p) to (%p)\n", tmp, my_recv_lists[nbr]);
             dll_append_list(my_recv_lists[nbr], tmp);
             // Destroy the tmp list
-            log_if_0("Destroying (%p)\n", (void*)tmp);
             dll_destroy(tmp);
         }
         b_time = MPI_Wtime();
@@ -444,8 +439,11 @@ int main(int argc, char** argv)
             dll_node_t * current_node = current_list->head->next;
             while (current_node != current_list->tail)
             {
-                pcord_t new = current_node->p;
-                printf("[ID:%d] Appending new!\n", my_id);
+                // Allocate memory for the new particle: always
+                pcord_t * new = (pcord_t * ) malloc (sizeof *new);
+                // Copy the contents of the old particle to the new one
+                *new = *current_node->p;
+                log_debug("[ID:%d] Appending new!", my_id);
                 dll_append(my_list, new);
                 // Advance to the next node
                 current_node = current_node->next;
@@ -456,6 +454,7 @@ int main(int argc, char** argv)
         }
         MPI_Barrier(grid_comm);
     }
+    MPI_Barrier(grid_comm);
 
     MPI_Allreduce(&pressure, &global_pressure, 1, MPI_FLOAT, MPI_SUM, grid_comm);
     endtime = MPI_Wtime();
@@ -464,12 +463,16 @@ int main(int argc, char** argv)
     {
         double avg = cs_time;
         double total_elapsed = endtime - starttime;
+        double total_pressure = global_pressure / (WALL_LENGTH * time_max);
         /* Don't use log.h functions: we want to always output something */
-        printf("Average pressure = %f, elapsed time = %.6f secs\n",
-                pressure / (WALL_LENGTH * time_max),
-                total_elapsed);
+        printf("Average pressure = %f, elapsed time = %.6f secs\n", total_pressure, total_elapsed);
         printf("Average time spent on the communications:\t%.6fs (%.2f %%)\n",
                 avg, 100 * avg / total_elapsed);
+        // Save relevant output to a file
+        if (log_to_file)
+        {
+            save_to_file(np, total_elapsed, total_pressure, nr_particles, total_number_of_particles);
+        }
     }
 
     /* Free stuff */

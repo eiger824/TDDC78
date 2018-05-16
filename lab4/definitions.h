@@ -26,6 +26,9 @@
 /* MPI notation */
 #define ROOT                    0
 
+/* Filename to store the output data */
+#define FILENAME                "results.txt"
+
 typedef struct particle
 {
     pcord_t  pcord;

@@ -39,7 +39,7 @@ void dll_destroy(dll_t * list)
 	free(list);
 }
 
-void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t  p)
+void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t * p)
 {
     dll_node_t * new_node = (dll_node_t *) malloc (sizeof *new_node);
 
@@ -61,7 +61,7 @@ void dll_insert_after(dll_t * list, dll_node_t *node, pcord_t  p)
     new_node->p = p;
 }
 
-void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t  p)
+void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t * p)
 {
     dll_node_t * new_node = (dll_node_t *) malloc (sizeof *new_node);
 
@@ -81,22 +81,22 @@ void dll_insert_before(dll_t * list, dll_node_t *node, pcord_t  p)
     new_node->p = p;
 }
 
-void dll_insert_beginning(dll_t * list, pcord_t  p)
+void dll_insert_beginning(dll_t * list, pcord_t * p)
 {
     dll_insert_before(list, list->head->next, p);
 }
 
-void dll_prepend(dll_t * list, pcord_t  p)
+void dll_prepend(dll_t * list, pcord_t * p)
 {
     dll_insert_beginning(list, p);
 }
 
-void dll_insert_end(dll_t * list, pcord_t  p)
+void dll_insert_end(dll_t * list, pcord_t * p)
 {
     dll_insert_after(list, list->tail->prev, p);
 }
 
-void dll_append(dll_t * list, pcord_t  p)
+void dll_append(dll_t * list, pcord_t * p)
 {
     dll_insert_end(list, p);
 }
@@ -125,9 +125,9 @@ void dll_print(dll_t * list)
     int count = 0 ;
     while (node != list->tail)
     {
-        pcord_t ptr = node->p;
+        pcord_t * ptr = node->p;
         printf("Particle %d: x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f.\n", count++,
-                ptr.x, ptr.y, ptr.vx, ptr.vy);
+                ptr->x, ptr->y, ptr->vx, ptr->vy);
         node = node->next;
     }
 }
@@ -139,9 +139,9 @@ void dll_print_node(dll_node_t * node)
         printf("Not found.\n");
         return;
     }
-    pcord_t ptr = node->p;
+    pcord_t * ptr = node->p;
     printf("Particle : x=%.02f,y=%.02f,\tvx=%.02f,vy=%.02f.\n",
-            ptr.x, ptr.y, ptr.vx, ptr.vy);
+            ptr->x, ptr->y, ptr->vx, ptr->vy);
 }
 
 void dll_append_list(dll_t * dst, dll_t * src)
@@ -149,7 +149,10 @@ void dll_append_list(dll_t * dst, dll_t * src)
     dll_node_t * current = src->head->next;
     while (current != src->tail)
     {
-        dll_append(dst, current->p);
+        // Allocate memory for the new particle
+        pcord_t * p = (pcord_t *) malloc (sizeof *p);
+        *p = *current->p;
+        dll_append(dst, p);
         current = current->next;
     }
 }
@@ -168,12 +171,12 @@ dll_t * dll_copy_list(dll_t * rhs)
 
 int dll_is_empty(dll_t * list)
 {
-    return !list->count;
+    return list->count == 0;
 }
 
 dll_node_t * dll_extract(dll_t * list, dll_node_t *node, pcord_t * p)
 {
-    *p = node->p;
+    p = node->p;
     return dll_delete(list, node);
 }
 
@@ -215,6 +218,7 @@ dll_node_t * dll_delete(dll_t * list, dll_node_t * node)
     out = node->next;
 
     // Free memory
+    free(node->p);
     free(node);
 
     // Decrease the count
@@ -237,9 +241,9 @@ dll_node_t * dll_at(dll_t * list, int index)
     {
         return NULL;
     }
-    dll_node_t * node = list->head;
+    dll_node_t * node = list->head->next;
     int count = 0;
-    while (node != list->tail->next)
+    while (node != list->tail)
     {
         if (count++ == index)
             return node;
@@ -255,10 +259,11 @@ pcord_t * dll_to_array(dll_t * list)
        return NULL;
     outarray = (pcord_t * ) malloc (sizeof *outarray * list->count);
     int pos = 0;
-    dll_node_t * node = list->head;
-    while (node != list->tail->next)
+    dll_node_t * node = list->head->next;
+    while (node != list->tail)
     {
-        *(outarray + pos++) = node->p;
+//         *(outarray + pos++) = *node->p;
+        memcpy(outarray + pos++, node->p, sizeof(pcord_t));
         node = node->next;
     }
     return outarray;
@@ -269,7 +274,8 @@ dll_t * dll_from_array(pcord_t *  array, int count)
     dll_t * outlist = dll_init();
     for (int i = 0; i < count; ++i)
     {
-        pcord_t p = *(array + i);
+        pcord_t * p = (pcord_t * ) malloc (sizeof *p);
+        *p = *(array + i);
 		dll_append(outlist, p);
 	}
 	return outlist;

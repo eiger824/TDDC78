@@ -1,10 +1,14 @@
 OBJDIR = obj
 BINDIR = bin
 
+# For tracing with ITAC
+CFLAGS += -tcollect -I$(VT_ROOT)/include
+LFLAGS += -L$(VT_LIB_DIR) -lVT $(VT_ADD_LIBS)
+
 ifeq ($(PTHREADS),1)
 	CC 		= gcc
 	CFLAGS 	+= -g -Wall -Wextra
-	LFLAGS	= -lpthread -lm -lrt
+	LFLAGS	+= -lpthread -lrt -lm
 	# Blurfilter
 	BLURFILTER_OBJ=blurfilter-pthreads.o
 	BLURFILTER_SRC=blurfilter-pthreads.c
@@ -19,7 +23,7 @@ endif
 ifeq ($(MPI),1)
 	CC 		= mpicc
 	CFLAGS 	+= -g -Nmpi -Wall -Wextra
-	LFLAGS	= -lpthread -lrt -lm
+	LFLAGS	+= -lpthread -lrt -lm
 	# Blurfilter
 	BLURFILTER_OBJ=blurfilter-mpi.o
 	BLURFILTER_SRC=blurfilter-mpi.c
@@ -54,12 +58,12 @@ ${BINDIR}/blurc: ${OBJDIR}/ppmio.o \
 	${OBJDIR}/${BLURFILTER_OBJ} \
 	${OBJDIR}/${BLURMAIN_OBJ} \
 	${OBJDIR}/image_utils.o
-	${CC} -o $@ $^ $(LFLAGS)
+	${CC} $^ $(LFLAGS) -o $@
 
 ${BINDIR}/thresc: ${OBJDIR}/ppmio.o \
 	${OBJDIR}/${THRESFILTER_OBJ} \
 	${OBJDIR}/${THRESMAIN_OBJ}
-	${CC} -o $@ $^ $(LFLAGS)
+	${CC} $^ $(LFLAGS) -o $@
 
 arc:
 	tar jcvf filters-labs1-2-sanpa993-haoli436.tar.bz2 *.c *.h Makefile README scripts *.pdf 

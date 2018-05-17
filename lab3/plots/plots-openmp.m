@@ -2,14 +2,13 @@ clear all
 close all
 clc
 
-nr_threads = [1 2 4 8 16];
-timings    = [4.1334 2.2808 1.3298 0.8115 0.8240];
+[nr_threads,timings,iterations,temperatures] = textread('output.txt', "%d %f %d %f");
 
 h1 = figure(1)
 
-bar(log2(nr_threads), timings)
+bar(timings) % The x axis is already from 1 - 16, so no need to specify it
 
-xlabel 'Nr. of threads (log2)'
+xlabel 'Nr. of threads'
 ylabel 'Execution time (s)'
 title 'Execution time vs. Nr. of threads used'
 

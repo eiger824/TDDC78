@@ -57,7 +57,7 @@ program laplsolv
         tmp3(0:n-1, i) = T(1:n, stop_pos(i)+1)
 	 end do
 
-     !$omp parallel private(j,tmp2,my_id) shared(T,tmp1, tmp3)
+     !$omp parallel private(j,tmp2,my_id) shared(T,tmp1,tmp3,k) reduction(max:error)
      my_id = OMP_GET_THREAD_NUM()
 
      do j=start_pos(my_id),(stop_pos(my_id)-1)

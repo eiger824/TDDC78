@@ -1,7 +1,7 @@
 FORTCC  = gfortran
 
 all: laplsolv-sequential laplsolv-parallel
-everything: laplsolv-sequential laplsolv-parallel run plots
+everything: all run plots
 
 laplsolv-sequential: laplsolv-sequential.f90
 	${FORTCC} -fopenmp $^ -o $@

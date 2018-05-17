@@ -4,7 +4,7 @@ clc
 
 [nr_threads,timings,iterations,temperatures] = textread('output.txt', "%d %f %d %f");
 
-h1 = figure(1, 'papersize', [800 480])
+h1 = figure(1)
 
 bar(timings) % The x axis is already from 1 - 16, so no need to specify it
 

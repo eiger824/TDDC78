@@ -28,19 +28,6 @@ int main (int argc, char ** argv) {
         exit(1);
     }
 
-    int vt_class_handle;
-    /* Define our VT class */
-    VT_classdef("Blurry filter class", &vt_class_handle);
-    /* Define handles for different states */
-    int horiz_filter_state;
-    int vert_filter_state;
-    int horiz_to_vert_state;
-    int communication_state;
-    VT_funcdef("Horizontal Filtering Part"          , vt_class_handle, &horiz_filter_state);
-    VT_funcdef("Vertical Filtering Part"            , vt_class_handle, &vert_filter_state);
-    VT_funcdef("Horizontal to Vertical Transition"  , vt_class_handle, &horiz_to_vert_state);
-    VT_funcdef("Communication Part"                 , vt_class_handle, &communication_state);
-
     radius = atoi(argv[1]);
 
     if (radius > MAX_RAD || radius < 1)
@@ -60,6 +47,16 @@ int main (int argc, char ** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &p);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
     printf("Nprocs:\t%d, my_id:\t%d\n", p, my_id);
+
+    int main_class;
+    /* Define our VT class */
+    VT_classdef("Blurry filter", &main_class);
+    /* Define handles for different states */
+    int hf, vf, h2v, comm;
+    VT_funcdef("Horizontal Filtering state"  , main_class, &hf);
+    VT_funcdef("Vertical Filtering state"    , main_class, &vf);
+    VT_funcdef("Horizontal to Vertical state", main_class, &h2v);
+    VT_funcdef("Communication state"         , main_class, &comm);
 
     if (my_id == ROOT)
     {
@@ -137,14 +134,30 @@ int main (int argc, char ** argv) {
     /*****************************************/
     /*************** VT Block ****************/
     /*****************************************/
-    VT_enter(horiz_filter_state, VT_NOSCL);
+    VT_enter(comm, VT_NOSCL);
     /* Scatter the work to do among processing units: horizontal filter first */
     MPI_Scatter((void *) src, elems_per_node, pixel_t_mpi,
             (void *) myarr, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(hf, VT_NOSCL);
     blurfilter(myarr, elems_per_node, xsize, radius, w);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(comm, VT_NOSCL);
     /* Gather the results */
     MPI_Gather(myarr, elems_per_node, pixel_t_mpi,
             src, elems_per_node, pixel_t_mpi,
@@ -162,7 +175,7 @@ int main (int argc, char ** argv) {
     /*****************************************/
     /*************** VT Block ****************/
     /*****************************************/
-    VT_enter(horiz_to_vert_state, VT_NOSCL);
+    VT_enter(h2v, VT_NOSCL);
     /* Convert our original image array `src` to a matrix */
     from_array(src, xsize, ysize, &original);
 
@@ -187,14 +200,31 @@ int main (int argc, char ** argv) {
     /*****************************************/
     /*************** VT Block ****************/
     /*****************************************/
-    VT_enter(vert_filter_state, VT_NOSCL);
+    VT_enter(comm, VT_NOSCL);
     MPI_Scatter((void *) src_adj, elems_per_node, pixel_t_mpi,
             (void *) myarr2, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
+
     /* Call the filter */
     /* Note that xsize is now ysize since we have transposed the original matrix */
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(vf, VT_NOSCL);
     blurfilter(myarr2, elems_per_node, ysize, radius, w);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(comm, VT_NOSCL);
     /* Gather the whole image into src_adj */
     MPI_Gather(myarr2, elems_per_node, pixel_t_mpi,
             src_adj, elems_per_node, pixel_t_mpi,

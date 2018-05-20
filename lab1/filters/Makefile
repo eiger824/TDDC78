@@ -17,7 +17,7 @@ ifeq ($(PTHREADS),1)
 	THRESMAIN_SRC=thresmain-pthreads.c
 endif
 ifeq ($(MPI),1)
-	CC 		= icpc
+	CC 		= icc
 	CFLAGS 	+= -g -Nmpi -Wall -Wextra
 	LFLAGS	+= -Nmpi
 	# Blurfilter

@@ -1,14 +1,10 @@
 OBJDIR = obj
 BINDIR = bin
 
-# For tracing with ITAC
-CFLAGS += -tcollect -I$(VT_ROOT)/include
-LFLAGS += -L$(VT_LIB_DIR) -lVT $(VT_ADD_LIBS)
-
 ifeq ($(PTHREADS),1)
 	CC 		= gcc
 	CFLAGS 	+= -g -Wall -Wextra
-	LFLAGS	+= -lpthread -lrt -lm
+	LFLAGS	+= -lpthread -lrt
 	# Blurfilter
 	BLURFILTER_OBJ=blurfilter-pthreads.o
 	BLURFILTER_SRC=blurfilter-pthreads.c
@@ -21,9 +17,9 @@ ifeq ($(PTHREADS),1)
 	THRESMAIN_SRC=thresmain-pthreads.c
 endif
 ifeq ($(MPI),1)
-	CC 		= mpicc
+	CC 		= icpc
 	CFLAGS 	+= -g -Nmpi -Wall -Wextra
-	LFLAGS	+= -lpthread -lrt -lm
+	LFLAGS	+= -Nmpi
 	# Blurfilter
 	BLURFILTER_OBJ=blurfilter-mpi.o
 	BLURFILTER_SRC=blurfilter-mpi.c
@@ -36,10 +32,14 @@ ifeq ($(MPI),1)
 	THRESMAIN_SRC=thresmain-mpi.c
 endif
 
+# For tracing with ITAC
+CFLAGS += -tcollect -I$(VT_ROOT)/include
+LFLAGS += -L$(VT_LIB_DIR) -lVT $(VT_ADD_LIBS)
+
 all: test ${OBJDIR} ${BINDIR} ${BINDIR} ${BINDIR}/blurc ${BINDIR}/thresc
 
 clean:
-	rm -rf *.o blurc thresc *.ppm *-results.png ${OBJDIR} ${BINDIR} *.swp *~ results*.txt
+	rm -rf *.o blurc thresc *.ppm *-results.png ${OBJDIR} ${BINDIR} *.swp *~ results*.txt blurc.* thresc.* only-set*
 
 test:
 	@test -n "$(MPI)$(PTHREADS)"
@@ -58,12 +58,12 @@ ${BINDIR}/blurc: ${OBJDIR}/ppmio.o \
 	${OBJDIR}/${BLURFILTER_OBJ} \
 	${OBJDIR}/${BLURMAIN_OBJ} \
 	${OBJDIR}/image_utils.o
-	${CC} $^ $(LFLAGS) -o $@
+	${CC} $^ ${LFLAGS} -o $@
 
 ${BINDIR}/thresc: ${OBJDIR}/ppmio.o \
 	${OBJDIR}/${THRESFILTER_OBJ} \
 	${OBJDIR}/${THRESMAIN_OBJ}
-	${CC} $^ $(LFLAGS) -o $@
+	${CC} $^ ${LFLAGS} -o $@
 
 arc:
 	tar jcvf filters-labs1-2-sanpa993-haoli436.tar.bz2 *.c *.h Makefile README scripts *.pdf 

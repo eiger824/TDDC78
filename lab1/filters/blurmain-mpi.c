@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include <mpi.h>
+#include <VT.h>
 
 #include "ppmio.h"
 #include "blurfilter-mpi.h"
@@ -26,6 +27,19 @@ int main (int argc, char ** argv) {
         fprintf(stderr, "Usage: %s radius infile outfile\n", argv[0]);
         exit(1);
     }
+
+    int vt_class_handle;
+    /* Define our VT class */
+    VT_classdef("Blurry filter class", &vt_class_handle);
+    /* Define handles for different states */
+    int horiz_filter_state;
+    int vert_filter_state;
+    int horiz_to_vert_state;
+    int communication_state;
+    VT_funcdef("Horizontal Filtering Part"          , vt_class_handle, &horiz_filter_state);
+    VT_funcdef("Vertical Filtering Part"            , vt_class_handle, &vert_filter_state);
+    VT_funcdef("Horizontal to Vertical Transition"  , vt_class_handle, &horiz_to_vert_state);
+    VT_funcdef("Communication Part"                 , vt_class_handle, &communication_state);
 
     radius = atoi(argv[1]);
 
@@ -61,12 +75,10 @@ int main (int argc, char ** argv) {
         max_size = xsize * ysize;
         printf("[ROOT] Has read the image, generating coefficients\n");
 
-        unsigned i;
-        for (i = 1; i< p; ++i)
-            MPI_Send(&max_size, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
     }
-    else
-        MPI_Recv(&max_size, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    /* Broadcast max_size to everyone */
+    MPI_Bcast(&max_size, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
     /************* First create our own MPI datatype *************/
     pixel item;
@@ -101,16 +113,10 @@ int main (int argc, char ** argv) {
     starttime = MPI_Wtime();
 
     /* Send xsize to the rest of the nodes */
-    unsigned i;
-    if (my_id == ROOT)
-        for (i = 1; i < p; ++i)
-            MPI_Send(&xsize, 1, MPI_INT, i, ROOT, MPI_COMM_WORLD);
-    else
-    {
-        MPI_Recv(&xsize, 1, MPI_INT, ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        /* Update ysize now that we have both max_size and xsize */
-        ysize = max_size / xsize;
-    }
+    MPI_Bcast(&xsize, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+        
+    /* Update ysize now that we have both max_size and xsize */
+    ysize = max_size / xsize;
 
     //     elems_per_node = p * xsize;
     elems_per_node = (ysize / p) * xsize;
@@ -124,27 +130,39 @@ int main (int argc, char ** argv) {
 
     /* Synchronization point */
     MPI_Barrier(MPI_COMM_WORLD);
-elems_per_node = (xsize / p) * ysize;
+    elems_per_node = (xsize / p) * ysize;
     /* Allocate a processing array for every node */
     myarr = (pixel * ) malloc (elems_per_node * sizeof(pixel));
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(horiz_filter_state, VT_NOSCL);
     /* Scatter the work to do among processing units: horizontal filter first */
     MPI_Scatter((void *) src, elems_per_node, pixel_t_mpi,
             (void *) myarr, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
 
     blurfilter(myarr, elems_per_node, xsize, radius, w);
+
     /* Gather the results */
     MPI_Gather(myarr, elems_per_node, pixel_t_mpi,
             src, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
 
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
+
     MPI_Barrier(MPI_COMM_WORLD);
 
-    //     if (my_id == ROOT)
-    //     {
     printf("[ROOT] Calculating adjoint pixel matrix\n");
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(horiz_to_vert_state, VT_NOSCL);
     /* Convert our original image array `src` to a matrix */
     from_array(src, xsize, ysize, &original);
 
@@ -153,15 +171,23 @@ elems_per_node = (xsize / p) * ysize;
 
     /* Convert the adjoint back to the array in `src_adj` */
     to_array(&adjoint, src_adj);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
 
     printf("[ROOT] Calling filter on vertical direction.\n");
-    //     }
+
     // The nodes must update their `elems_per_node` value
     elems_per_node = (xsize / p) * ysize;
 
     /* Allocate memory for the copy of the image */
     myarr2 = (pixel *) malloc (elems_per_node * sizeof(pixel));
 
+    /*****************************************/
+    /*************** VT Block ****************/
+    /*****************************************/
+    VT_enter(vert_filter_state, VT_NOSCL);
     MPI_Scatter((void *) src_adj, elems_per_node, pixel_t_mpi,
             (void *) myarr2, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
@@ -173,6 +199,10 @@ elems_per_node = (xsize / p) * ysize;
     MPI_Gather(myarr2, elems_per_node, pixel_t_mpi,
             src_adj, elems_per_node, pixel_t_mpi,
             ROOT, MPI_COMM_WORLD);
+    VT_leave(VT_NOSCL);
+    /*****************************************/
+    /*****************************************/
+    /*****************************************/
 
     MPI_Barrier(MPI_COMM_WORLD);
 
